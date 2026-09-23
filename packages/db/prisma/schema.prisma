@@ -14,69 +14,78 @@ datasource db {
 }
 
 model User {
-  id Int @id@default(autoincrement())
-  name String
-  phone String
-  email String
-  created_at DateTime @default(now())
+  id           Int            @id @default(autoincrement())
+  name         String
+  phone        String
+  email        String
+  created_at   DateTime       @default(now())
+  parties      Parties[]
+  reciepts     Reciepts[]
+  bills        Bills[]
+  partyMembers PartyMembers[]
 }
 
-model Parties{
-  id Int @id@default(autoincrement())
+model Parties {
+  id           Int            @id @default(autoincrement())
   organizer_id Int
-  organizer User @relation(fields:[organizer_id], references: [id])
-  name String
-  created_at DateTime @default(now())  
+  organizer    User           @relation(fields: [organizer_id], references: [id])
+  name         String
+  created_at   DateTime       @default(now())
+  reciepts     Reciepts[]
+  partyMembers PartyMembers[]
 }
 
 model Reciepts {
-  id Int @id@default(autoincrement())
-  party_id Int
-  party Parties @relation(fields:[party_id], references:[id])
-  uploaded_by Int
-  uploader User @relation(fields:[uploaded_by], references:[id])
+  id            Int            @id @default(autoincrement())
+  party_id      Int
+  party         Parties        @relation(fields: [party_id], references: [id])
+  uploaded_by   Int
+  uploader      User           @relation(fields: [uploaded_by], references: [id])
   merchant_name String
-  address String
-  purchased_at DateTime
-  image_url String
-  subtotal Decimal
-  Tax Decimal
-  Gratuity Decimal?
-  Total Decimal
-  created_at DateTime @default(now())
+  address       String
+  purchased_at  DateTime
+  image_url     String
+  subtotal      Decimal
+  Tax           Decimal
+  Gratuity      Decimal?
+  Total         Decimal
+  created_at    DateTime       @default(now())
+  recieptItems  RecieptItems[]
+  bills         Bills[]
 }
 
 model RecieptItems {
-  id Int @id@default(autoincrement()) 
-  reciept_id Int
-  reciept Reciepts @relation(fields:[reciept_id], references:[id])
-  line_number Int
-  name String
-  quantity Decimal
+  id             Int      @id @default(autoincrement())
+  reciept_id     Int
+  reciept        Reciepts @relation(fields: [reciept_id], references: [id])
+  line_number    Int
+  name           String
+  quantity       Decimal
   price_per_unit Decimal
-  total_price Decimal
-  is_verified Boolean
+  total_price    Decimal
+  is_verified    Boolean
+  bills          Bills?   @relation(fields: [billsId], references: [id])
+  billsId        Int?
 }
 
 model Bills {
-  id Int @id@default(autoincrement())
-  reciept_id Int
-  reciept Reciepts @relation(fields:[reciept_id], references:[id])
-  billed_to Int
-  billed_user User @relation(fields:[billed_to], references:[id])
+  id          Int            @id @default(autoincrement())
+  reciept_id  Int
+  reciept     Reciepts       @relation(fields: [reciept_id], references: [id])
+  billed_to   Int
+  billed_user User           @relation(fields: [billed_to], references: [id])
   amount_owed Decimal
-  items RecieptItems[]
-  is_paid Boolean
-  created_at DateTime
+  items       RecieptItems[]
+  is_paid     Boolean
+  created_at  DateTime
 }
 
-model PartyMembers{
-  id Int @id@default(autoincrement())
-  party_id Int
-  party Parties @relation(fields:[party_id], references:[id])
-  user_id Int
-  member User @relation(fields:[user_id], references:[id])
-  name String
+model PartyMembers {
+  id        Int      @id @default(autoincrement())
+  party_id  Int
+  party     Parties  @relation(fields: [party_id], references: [id])
+  user_id   Int
+  member    User     @relation(fields: [user_id], references: [id])
+  name      String
   joined_at DateTime @default(now())
 }
-
