@@ -23,7 +23,7 @@ model User {
 
 model Parties{
   id Int @id@default(autoincrement())
-  organizer_id @unique
+  organizer_id Int
   organizer User @relation(fields:[organizer_id], references: [id])
   name String
   created_at DateTime @default(now())  
