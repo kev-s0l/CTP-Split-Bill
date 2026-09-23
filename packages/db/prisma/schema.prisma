@@ -21,6 +21,14 @@ model User {
   created_at DateTime @default(now())
 }
 
+model Parties{
+  id Int @id@default(autoincrement())
+  organizer_id @unique
+  organizer User @relation(fields:[organizer_id], references: [id])
+  name String
+  created_at DateTime @default(now())  
+}
+
 model Reciepts {
   id Int @id@default(autoincrement())
   party_id Int
@@ -60,14 +68,6 @@ model Bills {
   items RecieptItems[]
   is_paid Boolean
   created_at DateTime
-}
-
-model Parties{
-  id Int @id@default(autoincrement())
-  organizer User @relation(fields:[organizer_id], references: [id])
-  organizer_id @unique
-  name String
-  created_at DateTime @default(now())  
 }
 
 model PartyMembers{
