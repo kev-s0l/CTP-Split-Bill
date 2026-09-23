@@ -73,9 +73,9 @@ model Bills {
 model PartyMembers{
   id Int @id@default(autoincrement())
   party_id Int
-  party Parties @relation(fields:[party_id], references[id])
+  party Parties @relation(fields:[party_id], references:[id])
   user_id Int
-  member User @relation(fields:[user_id], references[id])
+  member User @relation(fields:[user_id], references:[id])
   name String
   joined_at DateTime @default(now())
 }
