@@ -22,7 +22,7 @@ model User {
   parties      Parties[]
   reciepts     Reciepts[]
   bills        Bills[]
-  partyMembers PartyMembers[]
+  partyMembers PartyMembers?
 }
 
 model Parties {
@@ -31,15 +31,15 @@ model Parties {
   organizer    User           @relation(fields: [organizer_id], references: [id])
   name         String
   created_at   DateTime       @default(now())
-  reciepts     Reciepts[]
+  reciepts     Reciepts?
   partyMembers PartyMembers[]
 }
 
 model Reciepts {
   id            Int            @id @default(autoincrement())
-  party_id      Int
+  party_id      Int            @unique
   party         Parties        @relation(fields: [party_id], references: [id])
-  uploaded_by   Int
+  uploaded_by   Int 
   uploader      User           @relation(fields: [uploaded_by], references: [id])
   merchant_name String
   address       String
@@ -84,7 +84,7 @@ model PartyMembers {
   id        Int      @id @default(autoincrement())
   party_id  Int
   party     Parties  @relation(fields: [party_id], references: [id])
-  user_id   Int
+  user_id   Int      @unique
   member    User     @relation(fields: [user_id], references: [id])
   name      String
   joined_at DateTime @default(now())
