@@ -14,15 +14,17 @@ datasource db {
 }
 
 model User {
-  id           Int            @id @default(autoincrement())
-  name         String
-  phone        String
-  email        String
-  created_at   DateTime       @default(now())
-  parties      Parties[]
-  reciepts     Reciepts[]
-  bills        Bills[]
-  partyMembers PartyMembers?
+  id                Int           @id @default(autoincrement())
+  name              String
+  phone             String
+  email             String
+  created_at        DateTime      @default(now())
+  parties           Parties[]
+  reciepts          Reciepts[]
+  bills             Bills[]
+  partyMembers      PartyMembers?
+  transaction_payer Transactions? @relation("TransactionPayer")
+  recipient         Transactions? @relation("TransactionRecipient")
 }
 
 model Parties {
@@ -39,7 +41,7 @@ model Reciepts {
   id            Int            @id @default(autoincrement())
   party_id      Int            @unique
   party         Parties        @relation(fields: [party_id], references: [id])
-  uploaded_by   Int 
+  uploaded_by   Int
   uploader      User           @relation(fields: [uploaded_by], references: [id])
   merchant_name String
   address       String
@@ -69,15 +71,16 @@ model RecieptItems {
 }
 
 model Bills {
-  id          Int            @id @default(autoincrement())
-  reciept_id  Int
-  reciept     Reciepts       @relation(fields: [reciept_id], references: [id])
-  billed_to   Int
-  billed_user User           @relation(fields: [billed_to], references: [id])
-  amount_owed Decimal
-  items       RecieptItems[]
-  is_paid     Boolean
-  created_at  DateTime
+  id           Int            @id @default(autoincrement())
+  reciept_id   Int
+  reciept      Reciepts       @relation(fields: [reciept_id], references: [id])
+  billed_to    Int
+  billed_user  User           @relation(fields: [billed_to], references: [id])
+  amount_owed  Decimal
+  items        RecieptItems[]
+  is_paid      Boolean
+  created_at   DateTime
+  transactions Transactions[]
 }
 
 model PartyMembers {
@@ -88,4 +91,20 @@ model PartyMembers {
   member    User     @relation(fields: [user_id], references: [id])
   name      String
   joined_at DateTime @default(now())
+}
+
+model Transactions {
+  id           Int           @id @default(autoincrement())
+  bill_id      Int           @unique
+  bill         Bills         @relation(fields: [bill_id], references: [id])
+  payer_id     Int           @unique
+  payer        User          @relation("TransactionPayer", fields: [payer_id], references: [id])
+  recipient_id Int           @unique
+  recipient    User          @relation("TransactionRecipient", fields: [recipient_id], references: [id])
+  status       PaymentStatus @default(UNPAID)
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
 }
