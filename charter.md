@@ -1,9 +1,9 @@
 # Team Charter
 
-*C12 Fall 2026 · Week 3's homework · written as a team after kickoff
+_C12 Fall 2026 · Week 3's homework · written as a team after kickoff
 (section 4 while the migration review is fresh) · merged into your team
 repo by the Week-4 session · revisit at midterm. Worked example: [charter-example.md](charter-example.md) · how-to:
-[charter-guide.md](charter-guide.md).*
+[charter-guide.md](charter-guide.md)._
 
 ## 1 · Team & Project
 
@@ -11,16 +11,16 @@ repo by the Week-4 session · revisit at midterm. Worked example: [charter-examp
 
 **Project (adopted pitch):** Split Bill
 
-**Section:** Fri 3:00 
+**Section:** Fri 3:00
 
 **Members:**
 
-| Name           | GitHub | Email |
-|Kevin Bermejo   |kev-s0l   ||
+| Name | GitHub | Email |
+|Kevin Bermejo |kev-s0l ||
 |Keyshawn Seymour|KeySeymour|kseymour@live.com|
-|Eric Gardiner   |        |       |
-|Sahla Taher     |sahlataher|sahlataher7@gmail.com|
-|Andrew Jiang    |ajiangny|andrewjiang74@gmail.com|
+|Eric Gardiner | | |
+|Sahla Taher |sahlataher|sahlataher7@gmail.com|
+|Andrew Jiang |ajiangny|andrewjiang74@gmail.com|
 
 ### Roles & responsibilities
 
@@ -33,8 +33,8 @@ Roles rotate weekly so nobody becomes "the one who always…". The stand-up lead
 
 ## 2 · The Product
 
-*Pull this from your adopted pitch, then sharpen it as a team — this is
-refinement, not re-ideation.*
+_Pull this from your adopted pitch, then sharpen it as a team — this is
+refinement, not re-ideation._
 
 **The problem:** Helping large dinner groups split up their meal bills while keeping an accountability system for payment amongst users.
 
@@ -51,11 +51,11 @@ refinement, not re-ideation.*
 
 ## 3 · Working Agreement
 
-**Where we talk:** Slack 
+**Where we talk:** Slack
 
 **Response window:** Within 24 hours of a post being made
 
-**When we meet (outside class):** If there's any need to meet in-person outside of class the meeting will be scheduled at least 2 days prior and re-confirmed at least the night before. 
+**When we meet (outside class):** If there's any need to meet in-person outside of class the meeting will be scheduled at least 2 days prior and re-confirmed at least the night before.
 
 **Availability notes:** Schedules shared on slack channel. If there's any change prior to the new week starting it's to be brought up at the coming stand-up.
 
@@ -65,19 +65,19 @@ refinement, not re-ideation.*
 
 ### Rituals
 
-| Ritual | When | Shape |
-|--------|------|-------|
-| Stand-up | Friday 5:30pm, 15 min | Each person: merged / in review / blocked. Every blocker leaves with an owner|
-| Team review (in class) | Every session, ~15 min | One PR on screen; the four moves (pull, run, read, ask one real question); Comments filed as real review comments.|
-| Async check-in | Flexible | One line each: what's in flight, anything slipping. Replaces a meeting not a converstaion |
-| Retro | Midterm (week 7) + before demo day | 20 minutes: Keep / stop / start. The charter gets edited on the spot, that's the output. |
-| Planning | Sunday night, async, 10 min | Next week's PRs claimed by name, one issue each. If you can't name your PR on Sunday, that's the first thing to say at stand-up. |
+| Ritual                 | When                               | Shape                                                                                                                            |
+| ---------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Stand-up               | Friday 5:30pm, 15 min              | Each person: merged / in review / blocked. Every blocker leaves with an owner                                                    |
+| Team review (in class) | Every session, ~15 min             | One PR on screen; the four moves (pull, run, read, ask one real question); Comments filed as real review comments.               |
+| Async check-in         | Flexible                           | One line each: what's in flight, anything slipping. Replaces a meeting not a converstaion                                        |
+| Retro                  | Midterm (week 7) + before demo day | 20 minutes: Keep / stop / start. The charter gets edited on the spot, that's the output.                                         |
+| Planning               | Sunday night, async, 10 min        | Next week's PRs claimed by name, one issue each. If you can't name your PR on Sunday, that's the first thing to say at stand-up. |
 
 **How we track work:** Github Issues, Project Board
 
 ## 4 · Code & Review Norms
 
-*Complete this section together in Week 3, at code kickoff.*
+_Complete this section together in Week 3, at code kickoff._
 
 **Branch & PR flow:** main is protected. Branch from main as yourname/short-thing, open a PR early (draft is fine), request the review captain plus one. Squash-merge; the PR title is the commit message, so write it like one.
 
@@ -110,7 +110,7 @@ update what isn't working.
 
 | Signed | Date |
 |Keyshawn Seymour|9/24/26|
-|Eric Gardiner  | 9/24/26|
-|Sahla Taher    |9/25/26|
-|        |      |
-|        |      |
+|Eric Gardiner | 9/24/26|
+|Sahla Taher |9/25/26|
+|Andrew Jiang|9/25/26|
+| | |
