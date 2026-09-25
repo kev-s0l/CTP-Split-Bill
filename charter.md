@@ -20,7 +20,7 @@ repo by the Week-4 session · revisit at midterm. Worked example: [charter-examp
 |Keyshawn Seymour|KeySeymour|kseymour@live.com|
 |Eric Gardiner   |        |       |
 |Sahla Taher     |        |       |
-|Andrew Jiang    |        |       |
+|Andrew Jiang    |ajiangny|andrewjiang74@gmail.com|
 
 ### Roles & responsibilities
 
