@@ -19,7 +19,7 @@ repo by the Week-4 session · revisit at midterm. Worked example: [charter-examp
 |Kevin Bermejo   |kev-s0l   ||
 |Keyshawn Seymour|KeySeymour|kseymour@live.com|
 |Eric Gardiner   |        |       |
-|Sahla Taher     |        |       |
+|Sahla Taher     |sahlataher|sahlataher7@gmail.com|
 |Andrew Jiang    |ajiangny|andrewjiang74@gmail.com|
 
 ### Roles & responsibilities
@@ -111,6 +111,6 @@ update what isn't working.
 | Signed | Date |
 |Keyshawn Seymour|9/24/26|
 |Eric Gardiner  | 9/24/26|
-|        |      |
+|Sahla Taher    |9/25/26|
 |        |      |
 |        |      |
