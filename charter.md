@@ -15,8 +15,8 @@ repo by the Week-4 session · revisit at midterm. Worked example: [charter-examp
 
 **Members:**
 
-| Name | GitHub | Email |
-|Kevin Bermejo |kev-s0l ||
+| Name           | GitHub | Email |
+|Kevin Bermejo   |kev-s0l   |kevinbermejo4606@gmail.com|
 |Keyshawn Seymour|KeySeymour|kseymour@live.com|
 |Eric Gardiner | | |
 |Sahla Taher |sahlataher|sahlataher7@gmail.com|
@@ -110,6 +110,7 @@ update what isn't working.
 
 | Signed | Date |
 |Keyshawn Seymour|9/24/26|
+|Kevin Bermejo|9/25/26|
 |Eric Gardiner | 9/24/26|
 |Sahla Taher |9/25/26|
 |Andrew Jiang|9/25/26|
