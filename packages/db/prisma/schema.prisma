@@ -1,11 +1,10 @@
-// The data model for the entire app. Boilerplate — empty schema with no models.
-// Example branches add their own models, enums, and migrations here.
+// The data model for the entire app: parties of members (users or guests)
+// splitting receipts read by an AI parser.
 
 generator client {
-  provider        = "prisma-client-js"
-  engineType      = "library"
-  previewFeatures = ["driverAdapters"]
-  output          = "../src/generated/prisma"
+  provider   = "prisma-client-js"
+  engineType = "library"
+  output     = "../src/generated/prisma"
 }
 
 datasource db {
@@ -14,97 +13,161 @@ datasource db {
 }
 
 model User {
-  id                Int           @id @default(autoincrement())
-  name              String
-  phone             String
-  email             String
-  created_at        DateTime      @default(now())
-  parties           Parties[]
-  reciepts          Reciepts[]
-  bills             Bills[]
-  partyMembers      PartyMembers?
-  transaction_payer Transactions? @relation("TransactionPayer")
-  recipient         Transactions? @relation("TransactionRecipient")
-}
-
-model Parties {
-  id           Int            @id @default(autoincrement())
-  organizer_id Int
-  organizer    User           @relation(fields: [organizer_id], references: [id])
-  name         String
-  created_at   DateTime       @default(now())
-  reciepts     Reciepts?
-  partyMembers PartyMembers[]
-}
-
-model Reciepts {
-  id            Int            @id @default(autoincrement())
-  party_id      Int            @unique
-  party         Parties        @relation(fields: [party_id], references: [id])
-  uploaded_by   Int
-  uploader      User           @relation(fields: [uploaded_by], references: [id])
-  merchant_name String
-  address       String
-  purchased_at  DateTime
-  image_url     String
-  subtotal      Decimal
-  Tax           Decimal
-  Gratuity      Decimal?
-  Total         Decimal
-  created_at    DateTime       @default(now())
-  recieptItems  RecieptItems[]
-  bills         Bills[]
-}
-
-model RecieptItems {
-  id             Int      @id @default(autoincrement())
-  reciept_id     Int
-  reciept        Reciepts @relation(fields: [reciept_id], references: [id])
-  line_number    Int
-  name           String
-  quantity       Decimal
-  price_per_unit Decimal
-  total_price    Decimal
-  is_verified    Boolean
-  bills          Bills?   @relation(fields: [billsId], references: [id])
-  billsId        Int?
-}
-
-model Bills {
-  id           Int            @id @default(autoincrement())
-  reciept_id   Int
-  reciept      Reciepts       @relation(fields: [reciept_id], references: [id])
-  billed_to    Int
-  billed_user  User           @relation(fields: [billed_to], references: [id])
-  amount_owed  Decimal
-  items        RecieptItems[]
-  is_paid      Boolean
-  created_at   DateTime
-  transactions Transactions[]
-}
-
-model PartyMembers {
-  id        Int      @id @default(autoincrement())
-  party_id  Int
-  party     Parties  @relation(fields: [party_id], references: [id])
-  user_id   Int      @unique
-  member    User     @relation(fields: [user_id], references: [id])
+  id        String   @id @default(cuid())
   name      String
-  joined_at DateTime @default(now())
+  email     String   @unique
+  phone     String?  @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organizedParties Party[]       @relation("PartyOrganizer")
+  memberships      PartyMember[]
+  uploadedReceipts Receipt[]     @relation("ReceiptUploader")
+
+  @@map("users")
 }
 
-model Transactions {
-  id           Int           @id @default(autoincrement())
-  bill_id      Int           @unique
-  bill         Bills         @relation(fields: [bill_id], references: [id])
-  payer_id     Int           @unique
-  payer        User          @relation("TransactionPayer", fields: [payer_id], references: [id])
-  recipient_id Int           @unique
-  recipient    User          @relation("TransactionRecipient", fields: [recipient_id], references: [id])
-  status       PaymentStatus @default(UNPAID)
+model Party {
+  id          String    @id @default(cuid())
+  organizerId String    @map("organizer_id")
+  organizer   User      @relation("PartyOrganizer", fields: [organizerId], references: [id])
+  name        String
+  shareToken  String?   @unique @map("share_token") // public read-only link; null = not shared — docs/specs/bills/public-share.md
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  members  PartyMember[]
+  receipts Receipt[]
+
+  @@index([organizerId])
+  @@map("parties")
 }
 
-enum PaymentStatus {
-  UNPAID
-  PAID
+model PartyMember {
+  id          String   @id @default(cuid())
+  partyId     String   @map("party_id")
+  party       Party    @relation(fields: [partyId], references: [id])
+  userId      String?  @map("user_id") // null = guest
+  user        User?    @relation(fields: [userId], references: [id])
+  displayName String   @map("display_name")
+  joinedAt    DateTime @default(now()) @map("joined_at")
+
+  itemShares   ItemShare[]
+  bills        Bill[]
+  paidReceipts Receipt[]   @relation("ReceiptPaidBy")
+
+  @@unique([partyId, userId]) // NULLs are distinct in Postgres, so many guests are allowed
+  @@index([userId])
+  @@map("party_members")
+}
+
+enum ReceiptStatus {
+  UPLOADED
+  PARSING
+  PARSED
+  PARSE_FAILED
+  FINALIZED
+}
+
+enum SplitMode {
+  EVEN
+  ITEMIZED
+}
+
+model Receipt {
+  id               String        @id @default(cuid())
+  partyId          String        @map("party_id")
+  party            Party         @relation(fields: [partyId], references: [id])
+  uploadedById     String        @map("uploaded_by_id")
+  uploadedBy       User          @relation("ReceiptUploader", fields: [uploadedById], references: [id])
+  paidByMemberId   String?       @map("paid_by_member_id") // who fronted the money = payment recipient
+  paidBy           PartyMember?  @relation("ReceiptPaidBy", fields: [paidByMemberId], references: [id])
+  status           ReceiptStatus @default(UPLOADED)
+  splitMode        SplitMode     @default(EVEN) @map("split_mode")
+  imageBlobName    String        @map("image_blob_name")
+  imageContentType String        @map("image_content_type")
+  extraction       Json? // raw AI output, kept for debugging and re-parsing
+  parseError       String?       @map("parse_error")
+  merchantName     String?       @map("merchant_name")
+  address          String?
+  purchasedAt      DateTime?     @map("purchased_at")
+  currency         String        @default("USD") @db.Char(3)
+  subtotal         Decimal?      @db.Decimal(12, 2)
+  tax              Decimal?      @db.Decimal(12, 2)
+  tip              Decimal?      @db.Decimal(12, 2)
+  total            Decimal?      @db.Decimal(12, 2)
+  createdAt        DateTime      @default(now()) @map("created_at")
+  deletedAt        DateTime?     @map("deleted_at")
+
+  items ReceiptItem[]
+  bills Bill[]
+
+  @@index([partyId])
+  @@index([uploadedById])
+  @@map("receipts")
+}
+
+model ReceiptItem {
+  id         String  @id @default(cuid())
+  receiptId  String  @map("receipt_id")
+  receipt    Receipt @relation(fields: [receiptId], references: [id])
+  lineNumber Int     @map("line_number")
+  name       String
+  quantity   Decimal @default(1) @db.Decimal(10, 3)
+  unitPrice  Decimal @map("unit_price") @db.Decimal(12, 2)
+  totalPrice Decimal @map("total_price") @db.Decimal(12, 2)
+  isVerified Boolean @default(false) @map("is_verified") // user confirmed the AI's reading
+
+  shares ItemShare[]
+
+  @@unique([receiptId, lineNumber])
+  @@map("receipt_items")
+}
+
+// Itemized split: who shares which item. weight 2 = pays twice the share of weight 1.
+model ItemShare {
+  itemId   String      @map("item_id")
+  item     ReceiptItem @relation(fields: [itemId], references: [id])
+  memberId String      @map("member_id")
+  member   PartyMember @relation(fields: [memberId], references: [id])
+  weight   Int         @default(1)
+
+  @@id([itemId, memberId])
+  @@index([memberId])
+  @@map("item_shares")
+}
+
+// Snapshot of what each member owes once the receipt is finalized.
+// taxShare and tipShare are the receipt's tax and tip allocated in proportion
+// to this member's subtotal; amountOwed = subtotal + taxShare + tipShare.
+// Rounding is largest-remainder per column so bills sum to the receipt
+// exactly — docs/specs/bills/split-allocation.md.
+model Bill {
+  id         String      @id @default(cuid())
+  receiptId  String      @map("receipt_id")
+  receipt    Receipt     @relation(fields: [receiptId], references: [id])
+  memberId   String      @map("member_id")
+  member     PartyMember @relation(fields: [memberId], references: [id])
+  subtotal   Decimal     @db.Decimal(12, 2)
+  taxShare   Decimal     @map("tax_share") @db.Decimal(12, 2)
+  tipShare   Decimal     @map("tip_share") @db.Decimal(12, 2)
+  amountOwed Decimal     @map("amount_owed") @db.Decimal(12, 2)
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  payments Payment[]
+
+  @@unique([receiptId, memberId])
+  @@index([memberId])
+  @@map("bills")
+}
+
+// Payer = bill.member, recipient = receipt.paidBy; "paid" = sum(amount) >= amountOwed.
+model Payment {
+  id     String   @id @default(cuid())
+  billId String   @map("bill_id")
+  bill   Bill     @relation(fields: [billId], references: [id])
+  amount Decimal  @db.Decimal(12, 2)
+  paidAt DateTime @default(now()) @map("paid_at")
+
+  @@index([billId])
+  @@map("payments")
 }
