@@ -18,7 +18,7 @@ repo by the Week-4 session · revisit at midterm. Worked example: [charter-examp
 | Name           | GitHub | Email |
 |Kevin Bermejo   |kev-s0l   |kevinbermejo4606@gmail.com|
 |Keyshawn Seymour|KeySeymour|kseymour@live.com|
-|Eric Gardiner | | |
+|Eric Gardiner   |emgardiner99|emgardiner99@gmail.com|
 |Sahla Taher |sahlataher|sahlataher7@gmail.com|
 |Andrew Jiang |ajiangny|andrewjiang74@gmail.com|
 
