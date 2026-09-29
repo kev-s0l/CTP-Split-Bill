@@ -41,6 +41,13 @@ store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
 | [thumbnail](items/thumbnail.md) | feature | Worker thumbnail generation with sharp, queue pipeline | 0006, 0007, 0008 |
 | [live-progress](items/live-progress.md) | feature | SSE live progress for thumbnail pipeline, pg_notify fan-out | 0007, 0005 |
 
+### Bills domain (`bills/`)
+
+| Doc | Type | What it covers | Key ADRs |
+|---|---|---|---|
+| [split-allocation](bills/split-allocation.md) | feature | Finalize a receipt: proportional tax/tip, largest-remainder rounding, bills sum to total | 0009 |
+| [public-share](bills/public-share.md) | feature | Read-only split view via share token — the one unscoped read | 0012 |
+
 Feature specs live under `docs/specs/<domain>/`, grouped by the domain they
 describe. In this template repo the `items/` domain is a worked demonstration;
 an application built from this template keeps its own domains on `main`.
