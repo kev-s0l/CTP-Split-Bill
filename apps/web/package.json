@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf .next"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
     "@tailwindcss/postcss": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "vitest": "^4.0.0"
   }
 }

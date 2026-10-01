@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "db:migrate": "pnpm --filter @project/migrate dev",
     "db:reset": "rm -rf .pgdata && echo \"Restart pnpm dev (db re-initializes + migrations re-apply)\"",
+    "db:seed": "tsx packages/db/src/seed.ts",
     "db:dev": "pnpm --filter @project/db-server dev",
     "prisma:generate": "pnpm --filter @project/db generate",
     "dev:web": "pnpm --filter @project/web dev",
