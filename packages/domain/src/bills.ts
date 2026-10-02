@@ -41,6 +41,27 @@ export async function listBills(userId: string) {
   });
 }
 
+export async function getBill(userId: string, billId: string) {
+  const bill = await prisma.bill.findUnique({
+    where: { id: billId },
+    select: {
+      id: true,
+      receiptId: true,
+      memberId: true,
+      subtotal: true,
+      taxShare: true,
+      tipShare: true,
+      amountOwed: true,
+      createdAt: true,
+      receipt: { select: { partyId: true } }
+    }
+  });
+
+  if (!bill) throw new ApiError("NOT_FOUND", "Bill not found", 404);
+
+  return bill;
+}
+
 export async function createBill(userId: string, input: CreateBillInput) {
   const { receiptId, memberId, subtotal, taxShare, tipShare, amountOwed } = input;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true }, });
