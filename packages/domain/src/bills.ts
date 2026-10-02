@@ -26,16 +26,16 @@ const BillSummary = {
 } as const;
 
 export async function listBills(userId: string) {
-  const member = await prisma.partyMember.findMany({
+  const members = await prisma.partyMember.findMany({
     where: {userId},
     select:{ id: true},
   });
 
-  const memberIds = member.map(m => m.id);
+  const memberIds = members.map(m => m.id);
   if (memberIds.length === 0){ return []; }
   
   return prisma.bill.findMany({
-    where: { memberId: { in memberIds } },
+    where: { memberId: { in: memberIds } },
     select: BillSummary,
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
   });
@@ -67,10 +67,10 @@ export async function createBill(userId: string, input: CreateBillInput) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true }, });
   if (!user){ throw new ApiError("UNAUTHENTICATED", "Unknown user", 401);}
   const receipt = await prisma.receipt.findUnique({ where: { id: receiptId }, select: { id: true, partyId: true, deletedAt: true }, });
-  if (!receipt || receipt.deletedAt){ throw new ApiError("Receipt not found", 404);}
+  if (!receipt || receipt.deletedAt){ throw new ApiError("NOT FOUND","Receipt not found", 404);}
   const member = await prisma.partyMember.findUnique({ where: { id: memberId }, select: { id: true, partyId:true }, });
-  if (!member){ throw new ApiError("Party member not found", 404);}
-  if (member.partyId !== receipt.partyId){ throw new ApiError("Member does not belong to this receipt", 403);}
+  if (!member){ throw new ApiError("NOT FOUND","Party member not found", 404);}
+  if (member.partyId !== receipt.partyId){ throw new ApiError("NOT AUTHORIZED","Member does not belong to this receipt", 403);}
 
   return prisma.bill.create({
     data: {
