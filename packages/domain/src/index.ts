@@ -2,6 +2,9 @@
 // Boilerplate — empty barrel. Example apps fill this with their own
 // schemas and query functions, following the web-only convention.
 
+export * from "./errors";
+export * from "./parties";
+
 //Export for Bills API
 import {getBill, listBills} from @project/packages/domain/src/bills.ts
 export {getBill, listBills}
