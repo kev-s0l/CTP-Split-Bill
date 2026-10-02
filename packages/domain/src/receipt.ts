@@ -30,7 +30,7 @@ export async function listReceipts(userId: string, partyId: string) {
     throw new ApiError("NOT_FOUND", "Party not found", 404);
   }
 
-  return prisma.receipt.findFirst({
+  return prisma.receipt.findMany({
     where: {
       partyId,
       deletedAt: null,
@@ -73,8 +73,33 @@ export async function getReceipt(userId: string, receiptId: string) {
       },
     },
 
-    include: {
-      recieptItems: {
+    select: {
+      id: true,
+      partyId: true,
+      paidByMemberId: true,
+      status: true,
+      splitMode: true,
+      merchantName: true,
+      address: true,
+      purchasedAt: true,
+      currency: true,
+      subtotal: true,
+      tax: true,
+      tip: true,
+      total: true,
+      createdAt: true,
+      
+      items: {
+        select: {
+          id: true,
+          lineNumber: true,
+          name: true,
+          quantity: true,
+          unitPrice: true,
+          totalPrice: true,
+          isVerified: true,
+        },
+
         orderBy: {
           lineNumber: "asc",
         },
@@ -85,6 +110,5 @@ export async function getReceipt(userId: string, receiptId: string) {
   if (!receipt) {
     throw new ApiError("NOT_FOUND", "Receipt not found", 404);
   }
-
   return receipt;
 }
