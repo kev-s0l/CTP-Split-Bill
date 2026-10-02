@@ -40,3 +40,23 @@ export async function createParty(userId: string, input: CreatePartyInput) {
     select: partySummary,
   });
 }
+
+export async function listPartiesReceipts(userId: string, partyId: string) {
+  const user = await prisma.user.findUnique({where:{id: userId}, select: {name:true}});
+  if (!user) throw new ApiError("UNAUTHENTICATED", "Unknown user", 401);
+
+  const party = await prisma.party.findFirst({
+    where: {
+      id:partyId,
+      deletedAt:null,
+      members: {some: {userId}},
+    },
+    select: {id:true}
+  });
+  if (!party) throw new ApiError("NOT_FOUND", "Party not found", 404);
+return prisma.receipt.findMany({
+    where: { partyId: party.id },
+    select: { id: true, partyId: true, createdAt: true },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+});
+};
