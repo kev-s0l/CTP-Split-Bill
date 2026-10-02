@@ -26,6 +26,7 @@ store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
 | [seams](seams.md) | infrastructure | The unifying seam pattern: local stand-in by default, real cloud via env var | 0005, 0008, 0003 |
 | [storage](storage.md) | infrastructure | Local-vs-real Azure pattern across blob and queue | 0006, 0008, 0005 |
 | [web](web.md) | infrastructure | Health endpoint, async-honesty UI standard, server entry ritual + error shape (404-not-403) | 0003, 0009 |
+| [api](api.md) | infrastructure | Every HTTP endpoint: naming, input schema, error codes, scoping | 0003, 0009, 0012 |
 | [auth](auth.md) | infrastructure | Identity derivation: dev stub now, sessions later, same seam | 0003 |
 | [deploy](deploy.md) | infrastructure | Container build + Azure topology, config via env only, kill-switches | 0008 |
 | [observability](observability.md) | infrastructure | Structured logs, request IDs, what gets measured | — |
@@ -40,6 +41,13 @@ store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
 | [attachment](items/attachment.md) | feature | Upload/download image, blob storage, MIME validation | 0006, 0008 |
 | [thumbnail](items/thumbnail.md) | feature | Worker thumbnail generation with sharp, queue pipeline | 0006, 0007, 0008 |
 | [live-progress](items/live-progress.md) | feature | SSE live progress for thumbnail pipeline, pg_notify fan-out | 0007, 0005 |
+
+### Parties domain (`parties/`)
+
+| Doc | Type | What it covers | Key ADRs |
+|---|---|---|---|
+| [list](parties/list.md) | feature | List the parties I'm a member of, excludes soft-deleted | 0009, 0003 |
+| [create](parties/create.md) | feature | Create a party; the creator becomes organizer and first member | 0009, 0003 |
 
 ### Bills domain (`bills/`)
 
