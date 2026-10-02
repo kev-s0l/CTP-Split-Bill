@@ -1,6 +1,5 @@
 import { currentUserId } from "@project/auth";
-import {toApiError } from "@project/domain";
-import {listBills, getBill} from "@project/domain/src/bills.ts";
+import {toApiError,listBills, getBill } from "@project/domain";
 
 export const dynamic = "force-dynamic";
 
