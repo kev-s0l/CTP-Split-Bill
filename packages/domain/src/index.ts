@@ -4,6 +4,6 @@ export * from "./errors";
 export * from "./parties";
 
 //Export for Bills API
-import {getBill, listBills} from @project/packages/domain/src/bills.ts
+import {getBill, listBills} from "@project/packages/domain/src/bills.ts"
 export {getBill, listBills}
 
