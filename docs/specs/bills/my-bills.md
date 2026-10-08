@@ -75,6 +75,11 @@ to open a single bill to see how that number was reached.
 | Database query throws | 500 `{ error: { code: "INTERNAL", message: "Something went wrong" } }` |
 
 ## Verify
+- `pnpm build`: the two route files must match the two URL shapes. Next
+  derives each handler's `params` type from the folder layout, so a detail
+  handler outside a `[billId]/` folder fails the build. `pnpm typecheck`
+  alone does not catch this — the generated route types live in
+  `.next/types/`, which exists only after a build.
 - `pnpm test`: `packages/domain/tests/bills.test.ts` and
   `apps/web/tests/bills-route.test.ts` cover every row above. Dropping the
   membership filter from `listBills()`, or the ownership check from
@@ -101,6 +106,12 @@ to open a single bill to see how that number was reached.
   from client-supplied amounts would bypass the largest-remainder guarantee
   that makes bills sum to the receipt, so the domain exposes no such
   function.
+- **The bill id is a path segment, not a query parameter.** A path names a
+  resource; a query string filters a collection. One URL shape per route
+  file then means one response shape per route — the list returns an array,
+  the detail an object, and neither handler branches. This is the naming
+  rule in [api](../api.md), and it is what leaves room for
+  `/api/bills/[billId]/payments`.
 - No pagination, and no total. A user has a handful of open bills; a
   `sum(amountOwed)` is the client's to compute until that stops being true.
 - No payment state. `amountOwed` is what was billed, not what is still
