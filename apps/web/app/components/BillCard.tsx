@@ -13,7 +13,7 @@ type BillCardProps = {
         <Card>
             <CardHeader>
                 <div className="">
-                    <span className="">{restaraunt}</span>
+                    <span className="">{restaurant}</span>
                 </div>
             </CardHeader>
 
