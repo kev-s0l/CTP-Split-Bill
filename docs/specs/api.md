@@ -62,10 +62,10 @@ the shared rules. A PR that adds or changes an endpoint updates its row here.
 |---|---|---|---|---|---|
 | `/api/parties/[partyId]/receipts` | POST | multipart image upload | 400, 401, 404 | I'm a member; `uploadedById = me` | `receipts/upload.md` |
 | `/api/receipts/[receiptId]` | PATCH | `UpdateReceipt { merchantName?, purchasedAt?, subtotal?, tax?, tip?, total?, paidByMemberId?, splitMode? }` | 400, 401, 404, 409 | I'm a member; 409 once `FINALIZED` | `receipts/edit.md` |
-| `/api/receipts/[receiptId]/items` | PUT | `ReplaceItems { items: [{ lineNumber, name, quantity, unitPrice, totalPrice }] }` | 400, 401, 404, 409 | I'm a member; replaces all items in one transaction; 409 once `FINALIZED` | `receipts/items.md` |
-| `/api/receipts/[receiptId]/allocations` | PUT | `ReplaceShares { shares: [{ itemId, memberId, weight }] }` | 400, 401, 404, 409 | I'm a member; every `itemId` and `memberId` belongs to this receipt/party | `bills/allocations.md` |
+| `/api/receipts/[receiptId]/items` | PUT | `ReplaceItems { items: [{ lineNumber, name, quantity, unitPrice, totalPrice }] }` (decimal strings; empty array clears items) | 400, 401, 404, 409 | I'm a member; replaces all items and clears old shares in one transaction; 409 once `FINALIZED` | `receipts/items.md` |
+| `/api/receipts/[receiptId]/allocations` | PUT | `ReplaceShares { shares: [{ itemId, memberId, weight }] }` (positive integer weights; empty array clears shares) | 400, 401, 404, 409 | I'm a member; every `itemId` and `memberId` belongs to this receipt/party, otherwise 404; atomic replacement; 409 once `FINALIZED` | `bills/allocations.md` |
 | `/api/receipts/[receiptId]/finalize` | POST | — | 400, 401, 404, 409 | See [split-allocation](bills/split-allocation.md) | `bills/split-allocation.md` |
-| `/api/receipts/[receiptId]/bills` | GET | — | 401, 404 | I'm a member of the receipt's party | `bills/list.md` |
+| `/api/receipts/[receiptId]/bills` | GET | — | 401, 404 | I'm a member of the receipt's party; returns ordered bill breakdowns with payment sums and settled flags | `bills/list.md` |
 
 ## Later — payments and notifications
 

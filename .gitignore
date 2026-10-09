@@ -12,4 +12,3 @@ packages/db/src/generated/
 dist/
 .turbo
 .DS_Store
-.vscode
