@@ -17,8 +17,8 @@ anyone who may not belong in the bill split.
   `DELETE /api/parties/[partyId]/members/[memberId]`.
 
 ## Behavior 
-- **Access.** Both endpoints first check the party: it must exist, and have a `PartyMember` row for the current user. If not,
-  404 `NOT_FOUND`. A member who is not the organizer gets 403 `FORBIDDEN` for security reasons (mentioned in lecture).
+- **Access.** Both endpoints first check the party: it must exist, not be soft-deleted, and have a `PartyMember` row for the current user. If not,
+  throw 404 `NOT_FOUND` for security reasons. A member who is not the organizer gets 403 `FORBIDDEN` for security reasons (mentioned in lecture).
 - **Adding.** The body is `{ displayName, userId? }`.
   - `displayName` is trimmed, then must be 1–50 characters.
   - No `userId` adds a guest (`userId` null). Any number of guests may
@@ -69,6 +69,17 @@ anyone who may not belong in the bill split.
   - The same request with `-H 'x-user-id: other-user'` returns 404.
   - `curl -i -X DELETE localhost:3000/api/parties/seed-party-demo/members/<id from the 201>`
     returns 204.
+
+## Constraints & decisions
+- Only the organizer manages membership. Members leaving on their own is
+  not supported yet.
+- Removal is a hard delete, not a soft delete: `PartyMember` has no
+  `deletedAt`, and a member with no bills has no history worth keeping.
+- Members with bills or a paid receipt stay. Finalized bills are a snapshot
+  that must sum to the receipt ([split-allocation](../bills/split-allocation.md)),
+  and payments hang off them.
+- Adding by `userId` assumes the organizer already knows the id. Invites by
+  email or link replace this once real auth exists.
 
 ## Out of scope
 - Seeing a party's members: `parties/detail.md`.
