@@ -51,6 +51,8 @@ the shared rules. A PR that adds or changes an endpoint updates its row here.
 |---|---|---|---|---|---|
 | `/api/parties` | GET | — | 401 | Parties where I'm a member, not deleted | `parties/list.md` |
 | `/api/parties` | POST | `CreateParty { name: string 1–100 }` | 400, 401 | `organizerId = me`; my `PartyMember` row created in the same transaction | `parties/create.md` |
+| `/api/parties/[partyId]/members` | POST | `AddMember { displayName: string 1–50, userId?: string }` (no `userId` = guest) | 400, 401, 403, 404, 409 | I'm a member (else 404); I'm the organizer (else 403); same user twice → 409; unknown `userId` → 400 | `parties/members.md` |
+| `/api/parties/[partyId]/members/[memberId]` | DELETE | — | 401, 403, 404, 409 | I'm a member (else 404); I'm the organizer (else 403); member must be in this party (else 404); organizer, or a member with bills or a paid receipt → 409 | `parties/members.md` |
 | `/api/parties/[partyId]` | GET | — | 401, 404 | I'm a member; returns the party with its members | `parties/detail.md` |
 | `/api/parties/[partyId]/members` | POST | `AddMember { displayName: string 1–50, userId?: string }` (no `userId` = guest) | 400, 401, 403, 404, 409 | I'm a member (else 404); I'm the organizer (else 403); same user twice → 409 | `parties/members.md` |
 | `/api/parties/[partyId]/receipts` | GET | — | 401, 404 | I'm a member; receipts not deleted, newest first | `receipts/list.md` |
