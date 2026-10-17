@@ -16,6 +16,7 @@ export type CreateBillInput = z.infer<typeof CreateBill>;
 
 
 const BillSummary = {
+  id: true,
   receiptId: true,
   memberId: true,
   subtotal: true,
