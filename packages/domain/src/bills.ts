@@ -15,7 +15,7 @@ export const CreateBill = z.object({
 export type CreateBillInput = z.infer<typeof CreateBill>;
 
 
-const BillSummary = {
+const billSummary = {
   id: true,
   receiptId: true,
   memberId: true,
