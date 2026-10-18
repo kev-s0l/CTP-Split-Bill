@@ -37,7 +37,7 @@ export async function listBills(userId: string) {
   
   return prisma.bill.findMany({
     where: { memberId: { in: memberIds } },
-    select: BillSummary,
+    select: billSummary,
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
   });
 }
@@ -82,6 +82,6 @@ export async function createBill(userId: string, input: CreateBillInput) {
       tipShare,
       amountOwed,
     },
-    select: BillSummary,
+    select: billSummary,
   });
 }
