@@ -3,3 +3,4 @@
 export * from "./errors";
 export * from "./parties";
 export * from "./bills";
+export * from "./contact";
