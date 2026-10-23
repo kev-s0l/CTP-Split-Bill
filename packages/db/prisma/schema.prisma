@@ -15,6 +15,7 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   name      String
+  passwordHash String?  @map("password_hash")
   email     String   @unique
   phone     String?  @unique
   createdAt DateTime @default(now()) @map("created_at")
@@ -48,6 +49,8 @@ model PartyMember {
   party       Party    @relation(fields: [partyId], references: [id])
   userId      String?  @map("user_id") // null = guest
   user        User?    @relation(fields: [userId], references: [id])
+  email       String?  @map("guest_email")
+  phone       String?  @map("guest_phone")
   displayName String   @map("display_name")
   joinedAt    DateTime @default(now()) @map("joined_at")
 
@@ -57,6 +60,8 @@ model PartyMember {
 
   @@unique([partyId, userId]) // NULLs are distinct in Postgres, so many guests are allowed
   @@index([userId])
+  @@index([email])
+  @@index([phone])
   @@map("party_members")
 }
 
