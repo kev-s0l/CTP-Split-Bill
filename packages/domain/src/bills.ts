@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@project/db";
 import { ApiError } from "./errors";
+import type { VerifiedContact } from "./contact";
 
 export const CreateBill = z.object({
   receiptId: z.string(),
