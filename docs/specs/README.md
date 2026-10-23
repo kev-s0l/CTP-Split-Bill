@@ -49,6 +49,12 @@ store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
 | [list](parties/list.md) | feature | List the parties I'm a member of, excludes soft-deleted | 0009, 0003 |
 | [create](parties/create.md) | feature | Create a party; the creator becomes organizer and first member | 0009, 0003 |
 
+### Receipts domain (`receipts/`)
+
+| Doc | Type | What it covers | Key ADRs |
+|---|---|---|---|
+| [detail](receipts/detail.md) | feature | Read one receipt and its ordered line items, scoped by party membership | 0009, 0003 |
+
 ### Bills domain (`bills/`)
 
 | Doc | Type | What it covers | Key ADRs |
