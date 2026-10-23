@@ -12,6 +12,11 @@ export const CreateUser = z.object({
 });
 export type CreateUserInput = z.infer<typeof CreateUser>;
 
+export const Login = z.object({
+    email: z.string().trim().toLowerCase().email("Not a valid email address"),
+    password: z.string(),
+});
+export type LoginInput = z.infer<typeof Login>;
 
 const userSummary = {
   id: true,
@@ -24,6 +29,21 @@ const userSummary = {
 function hashNode(text: string): string{
     return createHash("sha256").update(text,"utf-8").digest("hex");
 }
+
+export async function verifyLogin(input: LoginInput) {
+  const user = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { id: true, passwordHash: true }, 
+  });
+
+  const bad = () => new ApiError("UNAUTHENTICATED", "Invalid email or password", 401);
+
+  if (!user || !user.passwordHash) throw bad();
+  if (user.passwordHash !== hashNode(input.password)) throw bad();
+
+  return { id: user.id };
+}
+
 
 export async function createUser(input: CreateUserInput) {
     let passwordHash: string = hashNode(input.password);
