@@ -42,6 +42,28 @@ export async function listBills(userId: string) {
   });
 }
 
+export async function listBillsForContact(contact: VerifiedContact) {
+  const match =
+    contact.kind === "email" ? { email: contact.value } : { phone: contact.value };
+
+  const members = await prisma.partyMember.findMany({
+    where: { ...match, userId: null },
+    select: { id: true },
+  });
+
+  const memberIds = members.map((m) => m.id);
+  if (memberIds.length === 0) return [];
+
+  return prisma.bill.findMany({
+    where: {
+      memberId: { in: memberIds },
+      receipt: { deletedAt: null, party: { deletedAt: null } },
+    },
+    select: billSummary,
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+  });
+}
+
 export async function getBill(userId: string, billId: string) {
   const bill = await prisma.bill.findUnique({
     where: { id: billId },
