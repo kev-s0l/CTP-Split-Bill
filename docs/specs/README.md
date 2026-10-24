@@ -54,12 +54,16 @@ store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
 | Doc | Type | What it covers | Key ADRs |
 |---|---|---|---|
 | [detail](receipts/detail.md) | feature | Read one receipt and its ordered line items, scoped by party membership | 0009, 0003 |
+| [edit](receipts/edit.md) | feature | Correct receipt summary fields before finalization, scoped by party membership | 0009, 0003 |
+| [items](receipts/items.md) | feature | Replace receipt items and clear their shares atomically before finalization | 0009, 0003 |
 
 ### Bills domain (`bills/`)
 
 | Doc | Type | What it covers | Key ADRs |
 |---|---|---|---|
 | [split-allocation](bills/split-allocation.md) | feature | Finalize a receipt: proportional tax/tip, largest-remainder rounding, bills sum to total | 0009 |
+| [allocations](bills/allocations.md) | feature | Replace item shares with receipt/party ownership validation before finalization | 0009, 0003 |
+| [list](bills/list.md) | feature | Read scoped bill breakdowns, payment sums, and payer settlement | 0009, 0003 |
 | [public-share](bills/public-share.md) | feature | Read-only split view via share token — the one unscoped read | 0012 |
 
 Feature specs live under `docs/specs/<domain>/`, grouped by the domain they
