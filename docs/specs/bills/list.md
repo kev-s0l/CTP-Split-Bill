@@ -1,61 +1,59 @@
 ---
 type: feature
 ---
-# A party member can read a receipt's bill breakdown and settlement status
+# The organizer reads stored individual bills and their outstanding amounts
 
 ## Why
-Members need to see the final per-person charges and whether each bill is
-settled, including the member who paid for the original receipt.
+
+An organizer needs each participant's final breakdown and whether an amount
+remains unpaid, including their own share if they fronted the restaurant bill.
 
 ## Where it lives
-- `packages/domain/src/bills.ts`: `listReceiptBills()` and bill projection.
-- `apps/web/app/api/receipts/[receiptId]/bills/route.ts`: GET handler.
-- `apps/web/tests/bills-route.test.ts`: route integration tests with PGlite.
+
+- packages/domain/src/bills.ts: listReceiptBills, getBill and common projection.
+- apps/web/app/api/receipts/[id]/bills/route.ts: collection GET.
+- apps/web/app/api/bills/[billsId]/route.ts: individual GET.
+- apps/web/tests/bills-route.test.ts.
 
 ## Behavior
-- GET requires server-derived identity. An unknown user receives 401.
-- Any receipt party member may read all its bills. Unknown, foreign, or
-  deleted receipts and receipts in deleted parties receive 404 `NOT_FOUND`.
-- Success returns 200 with an array ordered by member joinedAt, then id.
-- Each bill contains `id`, `receiptId`, `memberId`, `displayName`, `subtotal`,
-  `taxShare`, `tipShare`, `amountOwed`, `amountPaid`, `settled`, and `createdAt`.
-- Amounts are decimal strings with two fractional digits. Dates are ISO
-  strings. `amountPaid` sums recorded payments without changing them.
-- `settled` is true when payments cover amountOwed, or when the member is
-  the receipt's paidBy member. Zero-owed bills also count as settled.
-- A receipt with no bills returns `[]`, including an unfinalized receipt.
-- Email, phone, user ids, raw extraction, image locations, and payment records
-  are not exposed. This endpoint performs no writes.
-- Unexpected failures are logged and return generic 500 `INTERNAL`.
+
+- Identity must exist (401). Both reads authorize through Receipt.ownerId and
+  exclude deleted receipts. Foreign, unknown or missing resources return 404.
+- Receipt bill GET returns an array ordered by participant joinedAt then id.
+  Before finalization it returns [].
+- Individual GET takes a bill ID, not a receipt ID, and returns one object.
+- Bills include id, receiptId, participantId, displayName, phone, subtotal,
+  taxShare, tipShare, amountOwed, paidAt, createdAt, settled and outstandingAmount.
+- Money uses decimal strings with two places. Dates use ISO strings or null.
+- settled is true for paidAt, the receipt's original payer or zero amountOwed.
+  Outstanding is zero when settled and amountOwed otherwise.
+- Reads never change amounts or recalculate the stored snapshot. Phone is
+  available only to the owning organizer for preparing a message.
+- Unexpected errors use generic 500. Raw extraction/blob data are excluded.
 
 ## Examples
 
-| State / input | Behavior |
+| State | Result |
 |---|---|
-| A finalized receipt has three members | 200; three bill breakdowns in member order |
-| Payer has no recorded payment | Its bill is settled and amountPaid is 0.00 |
-| Payments partially cover another member's bill | amountPaid is their sum; settled is false |
-| Payments cover or exceed amountOwed | settled is true |
-| Receipt has no bills yet | 200 with `[]` |
-| Another party's member requests it | 404 |
+| Finalized receipt has three participants | Three ordered bills |
+| Payer has null paidAt | settled true, outstanding 0.00 |
+| Another participant has null paidAt | Outstanding is their full amount |
+| That participant is marked paid | Outstanding 0.00, amountOwed unchanged |
+| Foreign organizer requests a bill ID | 404 |
 
 ## Verify
-- `pnpm --dir apps/web exec vitest run tests/bills-route.test.ts` exercises
-  happy and foreign-user paths, missing resources, soft deletion, empty
-  results, field projection, ordering, payment sums, and settlement rules.
-- `pnpm test`, `pnpm typecheck`, and `pnpm build` pass.
-- Drill: finalize the seeded receipt, GET its bills and verify the charges
-  sum to the receipt total. Repeat as other-user; expect 404.
+
+- pnpm test covers collection/individual scoping, deletion, empty results,
+  fixed monetary projection, payer/zero/manual-paid settlement and generic errors.
+- The domain seed drill checks bill amounts total 38.66 and foreign reads fail.
+- pnpm typecheck and pnpm build pass.
 
 ## Constraints & decisions
-- Bills are stored snapshots, not recalculated by reads; see
-  [split-allocation](split-allocation.md).
-- The payer's settlement is derived rather than represented by a synthetic
-  payment. No dependencies or schema changes are needed.
-- The route is dynamic and uses the normal scoped domain/auth seams, per
-  [ADR-0009](../../adr/0009-domain-web-only.md).
+
+- paidAt is binary manual tracking, not a payment ledger. No partial sums remain.
+- See ADR-0014 and split-allocation.md for immutable calculated snapshots.
 
 ## Out of scope
-- Generating bills: [split-allocation](split-allocation.md).
-- Payment recording and changing settled status: no accepted feature spec yet.
-- Public sharing: [public-share](public-share.md).
+
+- HTTP paid/unpaid PATCH, personalized message formatting, public links and
+  payment processing remain separate features.

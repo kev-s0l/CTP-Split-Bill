@@ -1,89 +1,71 @@
 ---
 type: feature
 ---
-# A party member can correct receipt summary fields
+# The organizer corrects and confirms a draft receipt at a known revision
 
 ## Why
-Receipt extraction can misread merchant names, dates, payers, split mode, and
-money fields. A party member needs a small edit endpoint so the receipt can be
-made accurate before items are replaced or the bill is finalized.
+
+OCR mistakes must be corrected and reviewed before the server creates bills;
+a stale editor must not overwrite or finalize someone else's newer draft.
 
 ## Where it lives
-- `packages/domain/src/receipt.ts`: `UpdateReceipt` validates the request and
-  `updateReceipt()` performs the scoped update.
-- `packages/domain/src/errors.ts`: shared API errors and unexpected-error
-  mapping.
-- `apps/web/app/api/receipts/[receiptId]/route.ts`:
-  `PATCH /api/receipts/[receiptId]`.
-- `apps/web/tests/receipt-route.test.ts`: route-level integration coverage.
+
+- packages/domain/src/receipt.ts: UpdateReceipt, updateReceipt and receipt validation.
+- packages/domain/src/receipt-access.ts: owner/state/revision lock.
+- apps/web/app/api/receipts/[id]/route.ts: PATCH.
+- apps/web/tests/receipt-route.test.ts.
 
 ## Behavior
-- Identity comes from `currentUserId()`; the client does not supply a user id.
-- The request body is JSON and must contain at least one editable field.
-- Editable fields are `merchantName`, `purchasedAt`, `subtotal`, `tax`, `tip`,
-  `total`, `paidByMemberId`, and `splitMode`.
-- `merchantName` is trimmed when present. A blank merchant name is rejected.
-- `purchasedAt` is an ISO-8601 datetime string with `Z` or an explicit timezone
-  offset when present; the response serializes it in UTC.
-- `subtotal`, `tax`, `tip`, and `total` are decimal money strings with at most
-  two fractional digits, greater than or equal to zero.
-- `paidByMemberId` must be a member of the receipt's party when present.
-- `splitMode` must be `EVEN` or `ITEMIZED`.
-- Unknown fields are ignored.
-- An identity with no `User` row receives 401 `UNAUTHENTICATED`.
-- An unknown, foreign, or soft-deleted receipt receives 404 `NOT_FOUND`.
-  A receipt in a soft-deleted party also receives 404.
-- A finalized receipt receives 409 `CONFLICT` and is not changed.
-- Success updates only the provided editable fields and returns 200 with the
-  same response shape as `GET /api/receipts/[receiptId]`, including ordered
-  line items.
-- The update is a single database write after scoped access and state checks.
-  The write also filters by membership, soft deletion, and non-finalized status.
-- Unexpected failures return 500 `INTERNAL` with a generic message; the real
-  error is logged and never returned to the client.
+
+- JSON requires expectedRevision plus at least one editable field.
+- Editable fields are title, merchantName, address, purchasedAt, subtotal, tax,
+  tip, total, paidByParticipantId, splitMode and reviewConfirmed.
+- Metadata can be null. Non-null title/name/address are trimmed, nonblank and
+  bounded to 100/200/500 characters. Dates require ISO datetime with an offset.
+- Money is a nonnegative decimal string, at most two fractional and ten integer
+  digits; raw strings are bounded to 64 characters. Amount fields may be null.
+- Split mode is EVEN, ITEMIZED or SHARED_ITEMS. Payer is null or a participant
+  of this receipt; unknown/foreign participants return 404.
+- Unknown fields, including ownerId/status/revision, are ignored.
+- Unknown users receive 401. Foreign/deleted/missing receipts receive 404.
+  Finalized, parsing or stale requests receive 409.
+- One transaction locks and advances revision before updates. Failures roll
+  back fields, revision and any allocation cleanup.
+- Content/monetary corrections clear reviewedAt. Split/payer changes advance
+  revision while retaining confirmation of the receipt information.
+- Switching to EVEN clears individual and shared allocations. Switching to
+  ITEMIZED clears shared allocations, leaving those items to be assigned.
+  Switching to SHARED_ITEMS preserves individual assignments.
+- reviewConfirmed: true validates complete items and reconciled receipt amounts,
+  marks the items verified and records reviewedAt in the same transaction.
+  Corrected FAILED OCR can be confirmed without pretending parsing succeeded.
+- Success returns receipt detail and revalidates its path.
 
 ## Examples
 
-| State / input | Behavior |
+| Input / state | Result |
 |---|---|
-| I am a member and PATCH `{ "merchantName": "Sushi Place", "tax": "2.66", "total": "38.66" }` | 200; only those fields are changed and the receipt detail response is returned |
-| I am a member and PATCH `{ "paidByMemberId": "<member in this party>" }` | 200; the receipt payer is changed |
-| I am a member and PATCH `{ "paidByMemberId": "<member in another party>" }` | 400 `INVALID_INPUT`; the receipt is not changed |
-| I am a member and PATCH `{ "splitMode": "ITEMIZED" }` | 200; the split mode changes to itemized |
-| I send malformed JSON | 400 `{ error: { code: "INVALID_INPUT", message: "Body must be valid JSON" } }` |
-| I PATCH an empty object | 400 `INVALID_INPUT` |
-| Another party's member requests the receipt id | 404 `{ error: { code: "NOT_FOUND", message: "Receipt not found" } }` |
-| The receipt is finalized | 409 `{ error: { code: "CONFLICT", message: "Receipt is finalized" } }` |
+| Matching revision and nullable corrected metadata | 200, revision advances, review clears |
+| Matching revision and reviewConfirmed: true | 200 with reviewedAt after reconciliation |
+| Inconsistent total plus confirmation | 400; corrections and revision roll back |
+| Concurrent writes with the same revision | One 200, one 409 |
+| Payer from a different receipt | 404, unchanged receipt |
 
 ## Verify
-- `pnpm --filter @project/web test -- receipt-route.test.ts` covers a
-  successful partial update, malformed JSON, validation failure, foreign
-  receipt 404, foreign payer rejection, and finalized receipt 409, plus unknown
-  users, soft deletion, guest payers, and edits by non-organizer party members.
-- `pnpm test`, `pnpm typecheck`, and `pnpm build` pass.
-- With `pnpm dev` running and `pnpm db:seed` applied,
-  `curl -i -X PATCH localhost:3000/api/receipts/seed-receipt-demo -H "content-type: application/json" -d "{\"merchantName\":\"Corrected Sushi Place\",\"tax\":\"2.66\"}"`
-  returns 200 with the corrected fields; the same request with
-  `-H 'x-user-id: other-user'` returns 404 in the shared error shape.
+
+- pnpm test covers malformed input, money bounds, nulls, ownership, mode changes,
+  review, stale/concurrent writes and state guards in receipt-route.test.ts.
+- The isolated seed drill confirms then finalizes a corrected receipt.
+- pnpm typecheck and pnpm build pass.
 
 ## Constraints & decisions
-- Any party member may correct summary fields because membership is the shared
-  receipt access rule in [the API contract](../api.md).
-- Finalized receipts are immutable here because bills and payments are
-  snapshots of the finalized receipt.
-- The endpoint does not recalculate totals or verify that subtotal, tax, tip,
-  and total balance. Finalization owns arithmetic validation in
-  [split-allocation](../bills/split-allocation.md).
-- Replacing line items is separate from editing summary fields so item
-  replacement can be transactional with share cleanup.
-- The endpoint returns the receipt detail projection so the client has one
-  canonical receipt shape after reads and edits.
-- The endpoint is dynamic and is not statically cached by Next.js.
+
+- The lock also coordinates item/assignment/finalization transactions.
+- Inconsistent draft amounts may be saved for correction; confirmation and
+  finalization require reconciliation. No bill totals are accepted here.
+- See model.md and ADR-0014.
 
 ## Out of scope
-- Uploading or parsing receipt images: see `receipts/upload.md` when that spec
-  exists.
-- Replacing receipt items: [items](items.md).
-- Assigning item shares and generating bills: see
-  [split-allocation](../bills/split-allocation.md) for finalization behavior.
-- Editing bills or payments after finalization: no feature spec yet.
+
+- Item collection replacement: items.md.
+- Upload/OCR, participant editing and finalized financial edits are separate work.

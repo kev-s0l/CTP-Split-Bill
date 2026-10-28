@@ -75,13 +75,13 @@ Its five props map to data the caller must assemble and format:
 | Prop | Source | Caller's job |
 |---|---|---|
 | `restaurant` | `Receipt.merchantName` (nullable) | supply a fallback — the prop is `string`, not `string \| null` |
-| `paidTo` | `Receipt.paidByMemberId` → `PartyMember.displayName` (both nullable) | resolve the member and supply a fallback |
-| `partyCount` | count of members billed on the receipt | count it in the query, not in the component |
+| `paidTo` | `Receipt.paidByParticipantId` → `Participant.displayName` (payer nullable) | resolve the receipt-local participant and supply a fallback |
+| `partyCount` | count of participants billed on the receipt | count it in the query, not in the component |
 | `total` | `Bill.amountOwed`, a `Decimal` serialized as a string | format for display |
 | `date` | `Bill.createdAt` or `Receipt.purchasedAt`, a `DateTime` | format for display |
 
 `BillCard` presents a bill; it does not decide which bills exist or who may
-see one. That scoping is [my-bills](bills/my-bills.md), and the loading,
+see one. That scoping is [bill breakdowns](bills/list.md), and the loading,
 empty, and error states around a list of these cards are the async-honesty
 standard in [web](web.md) — owned by the screen, not by the card.
 

@@ -20,4 +20,5 @@ that supersedes the old one.
 | 0010 | [Reviewer-agent lifecycle and authority](0010-reviewer-agent-lifecycle.md) | Accepted |
 | 0011 | [Ideation pipeline + @research subagent](0011-ideation-pipeline.md) | Accepted |
 | 0012 | [Public share link as the one unscoped read](0012-public-share-link.md) | Proposed |
-EOF
+| 0013 | [Presentational components](0013-presentational-components.md) | Proposed |
+| 0014 | [Receipt-owned domain](0014-receipt-owned-domain.md) | Accepted |

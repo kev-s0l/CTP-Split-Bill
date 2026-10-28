@@ -68,12 +68,12 @@ function roundColumn(total: bigint, exact: Fraction[]): bigint[] {
 export function allocateSplit(input: SplitInput): MemberAllocation[] {
   const invalid = (message: string): never => { throw new ApiError("INVALID_INPUT", message, 400); };
   if (input.subtotal <= 0n || input.tax < 0n || input.tip < 0n) invalid("Receipt amounts are invalid");
-  if (input.members.length === 0) invalid("Receipt has no party members");
+  if (input.members.length === 0) invalid("Receipt has no participants");
   const members = [...input.members].sort((a, b) =>
     a.joinedAt.getTime() - b.joinedAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
   );
   const memberIndex = new Map(members.map((member, index) => [member.id, index]));
-  if (memberIndex.size !== members.length) invalid("Party members must be unique");
+  if (memberIndex.size !== members.length) invalid("Participants must be unique");
   if (input.items.some((item) => item.totalPrice < 0n)
     || input.items.reduce((sum, item) => sum + item.totalPrice, 0n) !== input.subtotal) {
     invalid("Items must sum to the receipt subtotal");
@@ -89,7 +89,7 @@ export function allocateSplit(input: SplitInput): MemberAllocation[] {
       for (const share of item.shares) {
         if (!memberIndex.has(share.memberId) || assigned.has(share.memberId)
           || !Number.isInteger(share.weight) || share.weight <= 0 || share.weight > 2147483647) {
-          invalid("Item shares must reference party members with positive integer weights");
+          invalid("Item shares must reference participants with positive integer weights");
         }
         assigned.add(share.memberId);
       }

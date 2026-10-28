@@ -6,10 +6,10 @@ const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
 vi.mock("@project/auth", () => ({ currentUserId: async () => identity.userId }));
 vi.mock("next/cache", () => cache);
 
-const { PUT } = await import("../app/api/receipts/[receiptId]/allocations/route");
-const { POST } = await import("../app/api/receipts/[receiptId]/finalize/route");
-const { GET } = await import("../app/api/receipts/[receiptId]/bills/route");
-const { PUT: PUT_ITEMS } = await import("../app/api/receipts/[receiptId]/items/route");
+const { PUT } = await import("../app/api/receipts/[id]/shared-allocations/route");
+const { POST } = await import("../app/api/receipts/[id]/finalize/route");
+const { GET } = await import("../app/api/bills/[billsId]/route");
+const { PUT: PUT_ITEMS } = await import("../app/api/receipts/[id]/items/route");
 
 const receiptId = "bill-receipt";
 const first = { itemId: "bill-steak", memberId: "bill-member-a", weight: 1 };

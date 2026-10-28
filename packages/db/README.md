@@ -1,69 +1,46 @@
-# @project/db — Prisma schema, client, and migration runner
+# Database schema, client and SQL migrations
 
-The database seam. Owns the Prisma schema, the generated client, the migration
-files, and the `applyMigrations` helper. Every app and most other packages
-import from here.
+This package owns the Prisma schema/client, SQL migration loader and demo seed.
+The domain contains User, Receipt, Participant, ReceiptItem,
+SharedItemAllocation and Bill. Receipts authorize their organizer directly.
 
-**Boilerplate:** the schema is empty (generator + datasource only). Example
-branches add their own models, enums, and migration files.
+## Commands
 
-## Public API
+- pnpm prisma:generate regenerates the TypeScript client; it does not alter SQL.
+- pnpm db:migrate applies pending SQL against the configured database.
+- pnpm db:seed creates idempotent demo users and owned receipt data.
+- The local database server also applies pending SQL on startup.
 
-All exports come from `src/index.ts` (`@project/db`):
+## Migration format
 
-| Export | What it is |
-|---|---|
-| `prisma` | The singleton PrismaClient. One per process — cached in a global to survive hot reloads. |
-| `LOCAL_DEV_URL` | The default dev database URL (`postgresql://postgres:postgres@127.0.0.1:5433/postgres`). |
+The loader reads flat .sql files in prisma/migrations, sorts filenames and
+records applied names in _migrations. Keep 0001_init.sql unchanged; the
+receipt remodel is 0002_receipt_remodel.sql. Do not introduce a second migration
+history or depend on nested migration.sql directories being discovered.
 
-The migration runner is available at a separate export to keep it out of the
-web bundle (web apps never run migrations):
+Fresh databases apply both migrations. Existing databases apply only pending
+ones. Tests apply the same files to memory:// PGlite.
 
-```
-import { applyMigrations } from "@project/db/migrate";
-```
+The remodel reuses tables through renames and converts receipt-local references
+before dropping Party and Payment. It preserves receipt/item/bill IDs and bill
+amounts. A member keeps their ID on the first receipt and gets deterministic
+copies for additional receipts. Organizer ownership replaces uploader ownership.
 
-## Three doors, one client
+The upgrade aborts atomically for foreign legacy references, unequal active
+shares, partial/overpaid payment balances or invalid monetary/quantity data.
+Reconcile those rows explicitly before retrying; no reset or silent conversion
+is performed. Existing exact payment balances become manual paidAt markers.
+A failed migration is not recorded as applied.
 
-The Prisma client connects through three different doors depending on the
-environment:
+Do not run db:migrate or restart the local DB until ready to apply pending
+changes to that database. Validation and test commands do not migrate .pgdata.
 
-| Door | When | How |
-|---|---|---|
-| PGlite (in-process) | Tests (`PGLITE_DATA_DIR` set) | Postgres-in-WebAssembly, in memory, no server needed |
-| Local Postgres | Local dev (no env vars) | Your own server on `127.0.0.1:5433`, started by `apps/db-server/` |
-| Azure Postgres | Production (`DATABASE_URL` set) | Azure Database for PostgreSQL over the wire |
+## Client and tests
 
-## Dependencies
+The singleton client uses PGlite when PGLITE_DATA_DIR is set, otherwise the
+configured Postgres URL or local default. Generated client files remain ignored.
+Migration tests in apps/web/tests/migration.test.ts cover legacy conversion,
+same-receipt foreign keys and rollback. The domain seed drill verifies the
+review/finalize flow without external services.
 
-- `@project/log` — for logging (used by `applyMigrations`)
-- `@prisma/client` — the Prisma runtime, required directly by `@project/db` and as a peer dep of `pglite-prisma-adapter`
-- `@prisma/adapter-pg` — the driver adapter for the pg pool
-- `@electric-sql/pglite` — Postgres-in-WASM (used in test door only)
-- `pglite-prisma-adapter` — adapter bridging PGlite to Prisma
-- `pg` — the PostgreSQL client driver
-
-## Consumers
-
-- `apps/web` — via `@project/db`
-- `apps/worker` — via `@project/db`
-- `apps/db-server` — via `@project/db/migrate` (for `applyMigrations`)
-- `apps/migrate` — via `@project/db/migrate` (for `applyMigrations`)
-- `packages/domain` — via `@project/db`
-
-## Generating the client
-
-```bash
-pnpm prisma:generate
-```
-
-The generated client output goes to `src/generated/prisma/` (controlled by the
-`output` field in `prisma/schema.prisma`). This directory is gitignored and
-regenerated on install.
-
-## Adding a migration
-
-1. Edit `prisma/schema.prisma`.
-2. Run `prisma migrate dev --create-only` from this directory.
-3. Review the generated SQL in `prisma/migrations/`.
-4. Run `pnpm prisma:generate` to update the client types.
+See docs/specs/receipts/model.md and ADR-0014 for the model and migration contract.

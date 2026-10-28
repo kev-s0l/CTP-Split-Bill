@@ -3,13 +3,15 @@
 Zod validation schemas and database queries. Used only by the web app — the
 worker has no reason to validate user input or run web-queries.
 
-**Boilerplate:** empty barrel. Example branches add their own schemas and
-query functions here, following the web-only convention.
+The domain authorizes receipt ownership, validates draft corrections and
+assignments, and calculates immutable participant bills. See
+[the receipt model](../../docs/specs/receipts/model.md) and ADR-0014.
 
 ## Public API
 
-All exports come from `src/index.ts`. Currently empty — example branches
-export their schemas and queries from here.
+All exports come from `src/index.ts`: receipt reads/corrections, individual and
+shared assignments, finalization, bill reads, validation and API error helpers.
+The pure split engine remains shared by finalization's input adapter.
 
 ## Dependencies
 

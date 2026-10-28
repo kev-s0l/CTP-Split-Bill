@@ -1,71 +1,55 @@
 ---
 type: infrastructure
 ---
-# Specs — per-subsystem specifications
+# Specifications
 
-These documents describe how each subsystem behaves: its flow, boundaries,
-error states, and testing strategy. They evolve with the code and reference
-the ADRs that shaped them.
+## Purpose
 
-Specs use a `type:` frontmatter tag: `infrastructure` (cross-cutting,
-on every branch) or `feature` (application behavior, under `docs/specs/<domain>/`).
+Specifications describe the current subsystem contracts and feature behavior.
+Infrastructure specs are cross-cutting; feature specs live under their domain.
+Specs are evergreen and change with behavior. ADRs record decisions separately.
+Issues and PRs cite specs, never the reverse.
 
-**New feature specs start from [`_template-feature.md`](_template-feature.md)**
-(every section required); **new infrastructure specs start from
-[`_template-infrastructure.md`](_template-infrastructure.md)** (fixed opening
-and closing — Purpose, then Verify + Key ADRs — with a free-form middle that
-fits the content). A spec is born in the working session that builds
-the behavior: drafted from its issue, reviewed and corrected, landed in the
-same PR as the code. From then on it is evergreen — the PR that changes the
-behavior updates the spec. Linkage is one-way: issues cite specs; specs never
-store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
+New documents use _template-feature.md or _template-infrastructure.md.
+Every feature template section is required. See ../../CONTRIBUTING.md.
 
-| Doc | Type | What it covers | Key ADRs |
-|---|---|---|---|
-| [monorepo](monorepo.md) | infrastructure | Apps vs packages layout, dependency rules, `@project` scope placeholder | 0001, 0009 |
-| [seams](seams.md) | infrastructure | The unifying seam pattern: local stand-in by default, real cloud via env var | 0005, 0008, 0003 |
-| [storage](storage.md) | infrastructure | Local-vs-real Azure pattern across blob and queue | 0006, 0008, 0005 |
-| [web](web.md) | infrastructure | Health endpoint, async-honesty UI standard, server entry ritual + error shape (404-not-403) | 0003, 0009 |
-| [api](api.md) | infrastructure | Every HTTP endpoint: naming, input schema, error codes, scoping | 0003, 0009, 0012 |
-| [auth](auth.md) | infrastructure | Identity derivation: dev stub now, sessions later, same seam | 0003 |
-| [deploy](deploy.md) | infrastructure | Container build + Azure topology, config via env only, kill-switches | 0008 |
-| [observability](observability.md) | infrastructure | Structured logs, request IDs, what gets measured | — |
+## Infrastructure
 
-### Items domain (`items/`)
+| Spec | Contract |
+|---|---|
+| [monorepo](monorepo.md) | Workspace layout and dependency boundaries |
+| [seams](seams.md) | Local stand-ins and production adapters |
+| [storage](storage.md) | Blob, queue and notification adapters |
+| [web](web.md) | Health, async UI and server-entry standards |
+| [api](api.md) | Implemented routes, planned scaffolds, ownership and errors |
+| [auth](auth.md) | Existing identity seam and separate authentication work |
+| [deploy](deploy.md) | Deployment topology and configuration |
+| [observability](observability.md) | Logging and request context |
+| [components](components.md) | Presentational web components |
 
-| Doc | Type | What it covers | Key ADRs |
-|---|---|---|---|
-| [list](items/list.md) | feature | List my items, scoped by user, excludes soft-deleted | 0009, 0003 |
-| [create](items/create.md) | feature | Create an item with Zod validation + CREATED event | 0009 |
-| [detail](items/detail.md) | feature | View item detail, ownership, lightbox | 0009 |
-| [attachment](items/attachment.md) | feature | Upload/download image, blob storage, MIME validation | 0006, 0008 |
-| [thumbnail](items/thumbnail.md) | feature | Worker thumbnail generation with sharp, queue pipeline | 0006, 0007, 0008 |
-| [live-progress](items/live-progress.md) | feature | SSE live progress for thumbnail pipeline, pg_notify fan-out | 0007, 0005 |
+## Receipt and bill features
 
-### Parties domain (`parties/`)
+| Spec | Behavior |
+|---|---|
+| [receipt model](receipts/model.md) | Direct ownership, receipt-local participants and atomic legacy migration |
+| [receipt detail](receipts/detail.md) | Owner-only receipt, participant and item projection |
+| [receipt corrections](receipts/edit.md) | Versioned metadata/money edits and review confirmation |
+| [receipt items](receipts/items.md) | Atomic corrected-item replacement and assignment cleanup |
+| [assignments](bills/allocations.md) | One-person item assignments and separate equal shared allocations |
+| [finalization](bills/split-allocation.md) | Exact-cent server calculation and immutable bill snapshots |
+| [bill reads](bills/list.md) | Owner-only bill breakdowns and outstanding amounts |
+| [public sharing](bills/public-share.md) | Deferred public portals; current access remains organizer-only |
 
-| Doc | Type | What it covers | Key ADRs |
-|---|---|---|---|
-| [list](parties/list.md) | feature | List the parties I'm a member of, excludes soft-deleted | 0009, 0003 |
-| [create](parties/create.md) | feature | Create a party; the creator becomes organizer and first member | 0009, 0003 |
+Party specifications and APIs are retired. Historical SQL remains append-only.
 
-### Receipts domain (`receipts/`)
+## Verify
 
-| Doc | Type | What it covers | Key ADRs |
-|---|---|---|---|
-| [detail](receipts/detail.md) | feature | Read one receipt and its ordered line items, scoped by party membership | 0009, 0003 |
-| [edit](receipts/edit.md) | feature | Correct receipt summary fields before finalization, scoped by party membership | 0009, 0003 |
-| [items](receipts/items.md) | feature | Replace receipt items and clear their shares atomically before finalization | 0009, 0003 |
+- Links above resolve to checked-in specifications.
+- Each behavior change updates its governing spec and API index.
+- Implemented operations and planned scaffolds remain explicitly distinct.
 
-### Bills domain (`bills/`)
+## Key ADRs
 
-| Doc | Type | What it covers | Key ADRs |
-|---|---|---|---|
-| [split-allocation](bills/split-allocation.md) | feature | Finalize a receipt: proportional tax/tip, largest-remainder rounding, bills sum to total | 0009 |
-| [allocations](bills/allocations.md) | feature | Replace item shares with receipt/party ownership validation before finalization | 0009, 0003 |
-| [list](bills/list.md) | feature | Read scoped bill breakdowns, payment sums, and payer settlement | 0009, 0003 |
-| [public-share](bills/public-share.md) | feature | Read-only split view via share token — the one unscoped read | 0012 |
-
-Feature specs live under `docs/specs/<domain>/`, grouped by the domain they
-describe. In this template repo the `items/` domain is a worked demonstration;
-an application built from this template keeps its own domains on `main`.
+- ADR-0004: Prisma schema and SQL migrations.
+- ADR-0009: web-only domain package.
+- ADR-0014: receipt-owned domain.
