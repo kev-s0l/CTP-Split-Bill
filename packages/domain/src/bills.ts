@@ -195,3 +195,24 @@ export async function getBill(userId: string, billId: string) {
   const { receipt, ...detail } = bill;
   return presentBill(detail, receipt.paidByParticipantId);
 }
+
+// adding setBillPaid to package; sets or clears paidAt w/o modifying amounts
+export const SetBillPaid = z.object({ paid: z.boolean() });
+export type SetBillPaidInput = z.infer<typeof SetBillPaid>;
+
+// Manual paid tracking: only paidAt moves, the calculated snapshot never does.
+// Marking an already-paid bill paid keeps its original paidAt, so retries are idempotent.
+export async function setBillPaid(userId: string, billId: string, input: SetBillPaidInput) {
+  await requireReceiptUser(userId);
+  if (typeof billId !== "string" || billId.trim() === "") throw new ApiError("NOT_FOUND", "Bill not found", 404);
+  
+  const scope = { id: billId, receipt: { ownerId: userId, deletedAt: null } } satisfies Prisma.BillWhereInput;
+  const bill = await prisma.bill.findFirst({ where: scope, select: { id: true } });
+  
+  if (!bill) throw new ApiError("NOT_FOUND", "Bill not found", 404);
+  await prisma.bill.updateMany({
+    where: input.paid ? { ...scope, paidAt: null } : scope,
+    data: { paidAt: input.paid ? new Date() : null },
+  });
+  return getBill(userId, billId);
+}
