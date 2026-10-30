@@ -85,7 +85,7 @@ model Receipt {
   splitMode        SplitMode     @default(EVEN) @map("split_mode")
   imageBlobName    String        @map("image_blob_name")
   imageContentType String        @map("image_content_type")
-  extraction       Json? // raw AI output, kept for debugging and re-parsing
+  extraction       Json?         // raw AI output, kept for debugging and re-parsing
   parseError       String?       @map("parse_error")
   merchantName     String?       @map("merchant_name")
   address          String?
