@@ -26,6 +26,22 @@ export function listParties(userId: string) {
   });
 }
 
+// Unknown, foreign, and soft-deleted parties are one 404 — docs/specs/parties/detail.md.
+export async function getParty(userId: string, partyId: string) {
+  const party = await prisma.party.findFirst({
+    where: { id: partyId, deletedAt: null, members: { some: { userId } } },
+    select: {
+      ...partySummary,
+      members: {
+        select: { id: true, userId: true, displayName: true, joinedAt: true },
+        orderBy: [{ joinedAt: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+  if (!party) throw new ApiError("NOT_FOUND", "Party not found", 404);
+  return party;
+}
+
 export async function createParty(userId: string, input: CreatePartyInput) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
   if (!user) throw new ApiError("UNAUTHENTICATED", "Unknown user", 401);
