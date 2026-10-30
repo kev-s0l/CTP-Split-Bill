@@ -1,69 +1,68 @@
 ---
 type: feature
 ---
-# A party member can replace a receipt's item allocations before finalization
+# The organizer assigns personal items and separately allocates shared items
 
 ## Why
-Members need to assign each item to the people sharing it, with weights for
-unequal portions, before an itemized receipt can produce accurate bills.
+
+Itemized bills give each item one owner. A separate shared-items mode supports
+equal appetizers and other shared charges without arbitrary weights.
 
 ## Where it lives
-- `packages/domain/src/bills.ts`: `ReplaceShares` and `replaceReceiptShares()`.
-- `packages/domain/src/receipt-access.ts`: scoped receipt locking.
-- `apps/web/app/api/receipts/[receiptId]/allocations/route.ts`: PUT handler.
-- `apps/web/tests/bills-route.test.ts`: route integration tests with PGlite.
+
+- packages/domain/src/bills.ts: ReplaceAssignments, ReplaceSharedAllocations and
+  their transaction functions.
+- apps/web/app/api/receipts/[id]/assignments/route.ts: PUT.
+- apps/web/app/api/receipts/[id]/shared-allocations/route.ts: PUT.
+- apps/web/tests/bills-route.test.ts.
 
 ## Behavior
-- PUT accepts JSON `{ shares: [{ itemId, memberId, weight }] }`.
-- Ids are non-blank strings. Weight is a positive integer no greater than
-  2147483647. Each item/member pair occurs at most once. Unknown fields are
-  ignored. Invalid JSON or schema violations return 400 `INVALID_INPUT`.
-- Identity is server-derived; an unknown user returns 401 `UNAUTHENTICATED`.
-- Any party member may replace allocations. An unknown, foreign, or deleted
-  receipt, including one in a deleted party, returns 404 `NOT_FOUND`.
-- Every referenced item belongs to this receipt and every member belongs to
-  its party, including guests. Unknown or foreign references return the same
-  404 without changing existing shares.
-- A finalized receipt returns 409 `CONFLICT`.
-- The receipt is locked before checking references and replacing all its
-  shares in one transaction. Failed inserts restore the old shares.
-- An empty array clears allocations. Items need not all be assigned here;
-  itemized finalization rejects incomplete allocations.
-- Success returns 200 `{ shares: [{ itemId, memberId, weight }] }`, ordered
-  by item line number, then member joinedAt and id.
-- Receipt fields, items, and allocations on other receipts are unchanged.
-- Unexpected failures are logged and return generic 500 `INTERNAL`.
+
+- Both bodies require expectedRevision and use the owner/state/revision lock.
+- assignments contains [{itemId,participantId}], with at most 500 unique item
+  IDs. It replaces all individual assignments on the receipt. Assigning a
+  formerly shared item clears that item's sharing in the same transaction.
+- Shared allocations contains [{itemId,participantIds}], with at most 500
+  unique items and 2-200 distinct participants per item. It replaces all
+  shared rows and clears personal assignees on newly shared items.
+- IDs are trimmed, nonblank strings bounded to 200 characters. Every reference
+  must belong to this receipt; unknown/foreign references return 404.
+- EVEN rejects individual assignments with 409. Shared allocation writes
+  require SHARED_ITEMS, otherwise 409. ITEMIZED permits one-person assignments.
+- Empty arrays clear the corresponding collection; incomplete drafts may be
+  saved. Finalization checks that every item has the representation its mode
+  requires, never both individual and shared.
+- Receipt information review is retained because item contents do not change;
+  revision advances so existing previews become stale.
+- Invalid input returns 400; unknown user 401; foreign/deleted receipt 404;
+  finalized/parsing/stale state 409. Failures roll back all changes.
+- Success returns receipt detail and revalidates its path.
 
 ## Examples
 
-| State / input | Behavior |
+| Input / state | Result |
 |---|---|
-| A member assigns an item to a guest with weight 2 | 200; stored allocations are replaced |
-| An item belongs to another receipt or a member to another party | 404; existing allocations remain |
-| Weight is zero, fractional, or too large | 400; no changes |
-| A pair occurs twice | 400; no changes |
-| `shares: []` | 200; this receipt has no shares |
-| Receipt is finalized | 409; no changes |
+| ITEMIZED assignment of steak to Alex | Full item belongs to Alex |
+| Same item submitted twice | 400 |
+| SHARED_ITEMS appetizer for Alex and Sam | Equal shared rows |
+| Shared group contains one person or duplicates | 400 |
+| Shared item becomes personal | Old sharing clears atomically |
+| Insert fails during replacement | Old allocations and revision restored |
 
 ## Verify
-- `pnpm --dir apps/web exec vitest run tests/bills-route.test.ts` covers
-  success, validation, identity, foreign and unknown references, soft
-  deletion, finalized state, rollback, and concurrent replacements.
-- `pnpm test`, `pnpm typecheck`, and `pnpm build` pass.
-- Drill: use the seeded receipt's item ids and party member ids in a PUT;
-  expect 200. Repeat with `x-user-id: other-user`; expect 404, no changes.
+
+- pnpm test runs bills-route.test.ts for references, mode separation, empty
+  collections, validation, rollback, stale writes and finalization races.
+- pnpm typecheck and pnpm build pass.
 
 ## Constraints & decisions
-- Validation and queries are web-only domain responsibilities, per
-  [ADR-0009](../../adr/0009-domain-web-only.md).
-- The same receipt lock coordinates item replacement, allocation replacement,
-  and finalization, so references cannot be checked against replaced items.
-- Shares have no soft-delete field; replacement removes them physically.
-- Replacing allocations does not switch the receipt's split mode. Summary
-  edits own that choice.
+
+- Composite foreign keys reinforce same-receipt references. Domain validation
+  handles counts and mutual exclusion; no weighted input is stored.
+- Separate input operations preserve a clear distinction between one-person
+  item assignment and shared items. See ADR-0014 and ../receipts/model.md.
 
 ## Out of scope
-- Receipt summary fields: [receipt edit](../receipts/edit.md).
-- Replacing items: [receipt items](../receipts/items.md).
-- Bill calculation and finalization: [split-allocation](split-allocation.md).
-- Payment recording: no accepted feature spec yet.
+
+- Participant roster editing, weighted sharing and unit-by-unit ownership of
+  one quantity line. Separate corrected lines represent separate owners.

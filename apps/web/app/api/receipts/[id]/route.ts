@@ -1,4 +1,8 @@
+// GET /api/receipts/:id - Return receipt details, items, participants, assignments, and parsing state.
+// PATCH /api/receipts/:id - Correct draft fields, choose a split mode, or confirm review.
+
 import { currentUserId } from "@project/auth";
+import { revalidatePath } from "next/cache";
 import { 
     apiError, 
     getReceipt, 
@@ -11,10 +15,10 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request,
-    { params }: { params: Promise<{ receiptId: string }> }){    
+    { params }: { params: Promise<{ id: string }> }){    
         try{
             const me = await currentUserId();
-            const {receiptId} = await params;
+            const { id: receiptId } = await params;
             const receipt = await getReceipt(me, receiptId)
             return Response.json(receipt);
 
@@ -24,10 +28,10 @@ export async function GET(_req: Request,
     }   
 
 export async function PATCH(req: Request,
-    { params }: { params: Promise<{ receiptId: string }> }){
+    { params }: { params: Promise<{ id: string }> }){
         try {
             const me = await currentUserId();
-            const { receiptId } = await params;
+            const { id: receiptId } = await params;
 
             const body = await req.json().catch(() => null);
             if (body === null) {
@@ -40,6 +44,7 @@ export async function PATCH(req: Request,
             }
 
             const receipt = await updateReceipt(me, receiptId, parsed.data);
+            revalidatePath(`/api/receipts/${receiptId}`);
 
             return Response.json(receipt);
         } catch (e) {

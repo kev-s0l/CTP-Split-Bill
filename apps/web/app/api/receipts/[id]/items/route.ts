@@ -1,3 +1,5 @@
+// PUT /api/receipts/:id/items - Replace corrected draft items and clear their assignments and shared allocations.
+
 import { currentUserId } from "@project/auth";
 import { revalidatePath } from "next/cache";
 import { 
@@ -12,11 +14,11 @@ export const dynamic = "force-dynamic";
 
 export async function PUT(
   req: Request,
-  { params }: { params: Promise<{ receiptId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const me = await currentUserId();
-    const { receiptId } = await params;
+    const { id: receiptId } = await params;
     const body = await req.json().catch(() => null);
     if (body === null) {
       return apiError("INVALID_INPUT", "Body must be valid JSON", 400);

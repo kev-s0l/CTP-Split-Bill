@@ -1,451 +1,249 @@
-// Receipt read, edit, and item replacement through the real route handlers, against
-// in-memory PGlite. Identity is mocked at the @project/auth seam.
+// Real receipt handlers against PGlite, with only auth and cache mocked.
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@project/db";
 
-const identity = vi.hoisted(() => ({ userId: "receipt-alice" }));
-vi.mock("@project/auth", () => ({ currentUserId: async () => identity.userId }));
+const identity = vi.hoisted(() => ({ userId: "receipt-owner" }));
 const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
+vi.mock("@project/auth", () => ({ currentUserId: async () => identity.userId }));
 vi.mock("next/cache", () => cache);
+const { GET, PATCH } = await import("../app/api/receipts/[id]/route");
+const { PUT } = await import("../app/api/receipts/[id]/items/route");
 
-const { GET, PATCH } = await import("../app/api/receipts/[receiptId]/route");
-const { PUT } = await import("../app/api/receipts/[receiptId]/items/route");
+const receiptId = "receipt-test";
+const item = { lineNumber: 1, name: "Dinner", quantity: "1", unitPrice: "20.00", totalPrice: "20.00" };
+const context = (id = receiptId) => ({ params: Promise.resolve({ id }) });
+const get = (id = receiptId) => GET(new Request("http://test/api/receipts/" + id), context(id));
 
-function get(receiptId: string) {
-  return GET(new Request(`http://test/api/receipts/${receiptId}`), {
-    params: Promise.resolve({ receiptId }),
-  });
+function request(method: "PATCH" | "PUT", body: unknown, id = receiptId) {
+  const input = body !== null && typeof body === "object" && !Array.isArray(body)
+    ? { expectedRevision: 1, ...body } : body;
+  const req = new Request("http://test/api/receipts/" + id, { method, body: JSON.stringify(input) });
+  return method === "PATCH" ? PATCH(req, context(id)) : PUT(req, context(id));
 }
-
-function patch(receiptId: string, body: unknown) {
-  return PATCH(new Request(`http://test/api/receipts/${receiptId}`, {
-    method: "PATCH",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  }), { params: Promise.resolve({ receiptId }) });
-}
+const snapshot = () => prisma.receipt.findUniqueOrThrow({
+  where: { id: receiptId },
+  include: { items: { orderBy: { lineNumber: "asc" }, include: { sharedAllocations: true } } },
+});
 
 beforeAll(async () => {
-  await prisma.user.createMany({
-    data: [
-      { id: "receipt-alice", name: "Alice", email: "receipt-alice@example.com" },
-      { id: "receipt-bob", name: "Bob", email: "receipt-bob@example.com" },
-      { id: "receipt-charlie", name: "Charlie", email: "receipt-charlie@example.com" },
-    ],
-  });
-
-  await prisma.party.create({
-    data: {
-      id: "receipt-party-alice",
-      name: "Alice's dinner",
-      organizerId: "receipt-alice",
-      members: {
-        create: { id: "receipt-member-alice", userId: "receipt-alice", displayName: "Alice" },
-      },
-      receipts: {
-        create: {
-          id: "receipt-detail-alice",
-          uploadedById: "receipt-alice",
-          imageBlobName: "test/receipt.jpg",
-          imageContentType: "image/jpeg",
-          merchantName: "Alice's Bistro",
-          address: "123 Main Street",
-          purchasedAt: new Date("2026-10-01T18:30:00.000Z"),
-          items: {
-            create: [
-              { lineNumber: 2, name: "Tea", quantity: "1", unitPrice: "3.00", totalPrice: "3.00" },
-              { lineNumber: 1, name: "Dinner", quantity: "1", unitPrice: "20.00", totalPrice: "20.00" },
-            ],
-          },
-        },
-      },
-    },
-  });
-
-  await prisma.partyMember.createMany({
-    data: [
-      { id: "receipt-member-guest", partyId: "receipt-party-alice", displayName: "Guest" },
-      { id: "receipt-member-charlie", partyId: "receipt-party-alice", userId: "receipt-charlie", displayName: "Charlie" },
-    ],
-  });
-  await prisma.party.create({
-    data: {
-      id: "receipt-party-bob", name: "Bob's dinner", organizerId: "receipt-bob",
-      members: { create: { id: "receipt-member-bob", userId: "receipt-bob", displayName: "Bob" } },
-    },
-  });
-  await prisma.receipt.create({
-    data: {
-      id: "receipt-edit-alice", partyId: "receipt-party-alice", uploadedById: "receipt-alice",
-      imageBlobName: "test/edit.jpg", imageContentType: "image/jpeg",
-      items: {
-        create: [
-          { lineNumber: 2, name: "Tea", unitPrice: "3.00", totalPrice: "3.00" },
-          { lineNumber: 1, name: "Dinner", unitPrice: "20.00", totalPrice: "20.00" },
-        ],
-      },
-    },
-  });
+  await prisma.user.createMany({ data: [
+    { id: "receipt-owner", name: "Owner", email: "receipt-owner@example.com" },
+    { id: "receipt-other", name: "Other", email: "receipt-other@example.com" },
+  ] });
+  await prisma.receipt.create({ data: {
+    id: "receipt-foreign", ownerId: "receipt-other", imageBlobName: "foreign.jpg", imageContentType: "image/jpeg",
+    participants: { create: { id: "receipt-foreign-person", displayName: "Other" } },
+    items: { create: { ...item, id: "receipt-foreign-item" } },
+  } });
 });
-
 beforeEach(async () => {
-  identity.userId = "receipt-alice";
-  await prisma.party.update({ where: { id: "receipt-party-alice" }, data: { deletedAt: null } });
-  await prisma.receipt.update({
-    where: { id: "receipt-edit-alice" },
-    data: {
-      status: "PARSED", deletedAt: null, merchantName: "Original Bistro",
-      purchasedAt: new Date("2026-10-01T18:30:00.000Z"), paidByMemberId: "receipt-member-alice",
-      splitMode: "EVEN", subtotal: "23.00", tax: "2.00", tip: "4.00", total: "29.00",
-    },
+  identity.userId = "receipt-owner";
+  cache.revalidatePath.mockClear();
+  const fields = {
+    ownerId: "receipt-owner", status: "DRAFT" as const, parseStatus: "SUCCEEDED" as const,
+    revision: 1, deletedAt: null, reviewedAt: new Date(0), finalizedAt: null,
+    paidByParticipantId: null, splitMode: "EVEN" as const, title: "Dinner",
+    merchantName: "Bistro", address: "123 Main", purchasedAt: new Date(0),
+    subtotal: "30.00", tax: "2.70", tip: "6.00", total: "38.70",
+  };
+  await prisma.receipt.upsert({
+    where: { id: receiptId }, update: fields,
+    create: { id: receiptId, ...fields, imageBlobName: "receipt.jpg", imageContentType: "image/jpeg" },
   });
+  await prisma.bill.deleteMany({ where: { receiptId } });
+  await prisma.sharedItemAllocation.deleteMany({ where: { receiptId } });
+  await prisma.receiptItem.deleteMany({ where: { receiptId } });
+  await prisma.participant.deleteMany({ where: { receiptId } });
+  await prisma.participant.createMany({ data: [
+    { id: "receipt-alex", receiptId, displayName: "Alex", phone: "+12125550123", joinedAt: new Date(0) },
+    { id: "receipt-sam", receiptId, displayName: "Sam", joinedAt: new Date(1000) },
+  ] });
+  await prisma.receiptItem.createMany({ data: [
+    { ...item, id: "receipt-dinner", receiptId, isVerified: true },
+    { ...item, id: "receipt-app", receiptId, lineNumber: 2, name: "Appetizer", unitPrice: "10.00", totalPrice: "10.00", isVerified: true },
+  ] });
 });
 
-describe("PATCH /api/receipts/[receiptId]", () => {
-  it("200 with a partial update, trimmed name, ignored unknown fields, and the GET shape", async () => {
-    const before = await (await get("receipt-edit-alice")).json();
-    const res = await patch("receipt-edit-alice", {
-      merchantName: "  Corrected Bistro  ", tax: "2.66", total: "29.66",
-      status: "FINALIZED", partyId: "receipt-party-bob", currency: "EUR", items: [],
-    });
+describe("owned receipt reads and corrections", () => {
+  it("returns the ordered draft, participants and parsing state without private parser/blob data", async () => {
+    const res = await get();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ...before, merchantName: "Corrected Bistro", tax: "2.66", total: "29.66" });
-    expect(body.items.map((item: { lineNumber: number }) => item.lineNumber)).toEqual([1, 2]);
-    expect(await (await get("receipt-edit-alice")).json()).toEqual(body);
+    expect(body).toMatchObject({ id: receiptId, ownerId: "receipt-owner", revision: 1, status: "DRAFT", parseStatus: "SUCCEEDED" });
+    expect(body.items.map((row: { lineNumber: number }) => row.lineNumber)).toEqual([1, 2]);
+    expect(body.participants.map((row: { id: string }) => row.id)).toEqual(["receipt-alex", "receipt-sam"]);
+    for (const field of ["partyId", "extraction", "parseError", "imageBlobName", "deletedAt"]) expect(body).not.toHaveProperty(field);
   });
 
-  it("allows another party member to change the date, money fields, payer, and split mode", async () => {
-    identity.userId = "receipt-charlie";
-    const res = await patch("receipt-edit-alice", {
-      purchasedAt: "2026-10-02T12:30:00-04:00", subtotal: "0", tax: "0.0", tip: "0.00", total: "0",
-      paidByMemberId: "receipt-member-guest", splitMode: "ITEMIZED",
+  it("updates nullable metadata, clears review, advances revision and ignores protected fields", async () => {
+    const res = await request("PATCH", {
+      merchantName: "  Corrected  ", title: null, address: null, purchasedAt: null,
+      ownerId: "receipt-other", status: "FINALIZED", revision: 99,
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
-      purchasedAt: "2026-10-02T16:30:00.000Z", subtotal: "0", tax: "0", tip: "0", total: "0",
-      paidByMemberId: "receipt-member-guest", splitMode: "ITEMIZED",
+      merchantName: "Corrected", title: null, address: null, purchasedAt: null,
+      ownerId: "receipt-owner", status: "DRAFT", revision: 2, reviewedAt: null,
     });
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/api/receipts/" + receiptId);
   });
 
-  it("400 for malformed JSON", async () => {
-    const res = await PATCH(new Request("http://test/api/receipts/receipt-edit-alice", {
-      method: "PATCH", body: "{",
-    }), { params: Promise.resolve({ receiptId: "receipt-edit-alice" }) });
+  it("accepts all split modes, clears incompatible allocations and preserves personal assignments when appropriate", async () => {
+    await prisma.receipt.update({ where: { id: receiptId }, data: { splitMode: "SHARED_ITEMS" } });
+    await prisma.receiptItem.update({ where: { id: "receipt-dinner" }, data: { assignedParticipantId: "receipt-alex" } });
+    await prisma.sharedItemAllocation.createMany({ data: ["receipt-alex", "receipt-sam"].map((participantId) => ({
+      receiptId, itemId: "receipt-app", participantId,
+    })) });
+    expect((await request("PATCH", { splitMode: "ITEMIZED" })).status).toBe(200);
+    expect(await prisma.sharedItemAllocation.count({ where: { receiptId } })).toBe(0);
+    expect((await snapshot()).items[0].assignedParticipantId).toBe("receipt-alex");
+    expect((await request("PATCH", { expectedRevision: 2, splitMode: "EVEN" })).status).toBe(200);
+    expect((await snapshot()).items.every((row) => row.assignedParticipantId === null)).toBe(true);
+  });
+
+  it("confirms a complete manually corrected receipt after failed OCR", async () => {
+    await prisma.receipt.update({ where: { id: receiptId }, data: { parseStatus: "FAILED", reviewedAt: null } });
+    await prisma.receiptItem.updateMany({ where: { receiptId }, data: { isVerified: false } });
+    const res = await request("PATCH", { reviewConfirmed: true });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.reviewedAt).not.toBeNull();
+    expect(body.parseStatus).toBe("FAILED");
+    expect(body.items.every((row: { isVerified: boolean }) => row.isVerified)).toBe(true);
+  });
+
+  it("rolls back field edits and revision when review cannot reconcile", async () => {
+    const before = await snapshot();
+    const res = await request("PATCH", { total: "99.00", reviewConfirmed: true });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: { code: "INVALID_INPUT", message: "Body must be valid JSON" } });
+    expect(await snapshot()).toEqual(before);
   });
 
   it.each([
-    {}, { currency: "EUR" }, [], null,
-    { merchantName: "  " }, { merchantName: null },
-    { purchasedAt: "2026-10-02" }, { purchasedAt: "2026-02-30T12:00:00Z" },
-    { tax: "-1.00" }, { tip: "1.001" }, { total: 10 }, { subtotal: "1e2" },
-    { paidByMemberId: "" }, { splitMode: "CUSTOM" },
-  ])("400 and no change for invalid input %j", async (input) => {
-    const before = await (await get("receipt-edit-alice")).json();
-    const res = await patch("receipt-edit-alice", input);
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: { code: "INVALID_INPUT", message: expect.any(String) } });
-    expect(await (await get("receipt-edit-alice")).json()).toEqual(before);
+    {}, null, [], { expectedRevision: undefined, tax: "1" }, { expectedRevision: 0, tax: "1" },
+    { title: " " }, { merchantName: " " }, { address: "x".repeat(501) },
+    { purchasedAt: "2026-02-30T12:00:00Z" }, { tax: "-1" }, { tip: "1.001" },
+    { total: 10 }, { subtotal: "1e2" }, { total: "10000000000" }, { splitMode: "CUSTOM" },
+    { reviewConfirmed: false }, { paidByParticipantId: "" },
+  ])("rejects invalid correction %j without writes", async (input) => {
+    const before = await snapshot();
+    expect((await request("PATCH", input)).status).toBe(400);
+    expect(await snapshot()).toEqual(before);
   });
 
-  it.each(["receipt-member-bob", "unknown-member"])("400 and no change for payer %s", async (paidByMemberId) => {
-    const before = await (await get("receipt-edit-alice")).json();
-    const res = await patch("receipt-edit-alice", { paidByMemberId, merchantName: "Changed" });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: { code: "INVALID_INPUT" } });
-    expect(await (await get("receipt-edit-alice")).json()).toEqual(before);
+  it("uses a receipt-local payer and permits clearing it", async () => {
+    expect((await request("PATCH", { paidByParticipantId: "receipt-alex" })).status).toBe(200);
+    expect((await request("PATCH", { expectedRevision: 2, paidByParticipantId: null })).status).toBe(200);
+    const before = await snapshot();
+    expect((await request("PATCH", { expectedRevision: 3, paidByParticipantId: "receipt-foreign-person" })).status).toBe(404);
+    expect(await snapshot()).toEqual(before);
   });
 
-  it("404 and no change for another party's member", async () => {
-    const before = await (await get("receipt-edit-alice")).json();
-    identity.userId = "receipt-bob";
-    const res = await patch("receipt-edit-alice", { merchantName: "Changed" });
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Receipt not found" } });
-    identity.userId = "receipt-alice";
-    expect(await (await get("receipt-edit-alice")).json()).toEqual(before);
+  it("returns 404 for another owner, deleted, unknown and missing receipt IDs", async () => {
+    expect((await get("receipt-foreign")).status).toBe(404);
+    expect((await get("missing")).status).toBe(404);
+    const missing = await GET(new Request("http://test/api/receipts/missing"), { params: Promise.resolve({ id: undefined as unknown as string }) });
+    expect(missing.status).toBe(404);
+    identity.userId = "receipt-other";
+    expect((await get()).status).toBe(404);
+    expect((await request("PATCH", { tax: "2" })).status).toBe(404);
+    identity.userId = "receipt-owner";
+    await prisma.receipt.update({ where: { id: receiptId }, data: { deletedAt: new Date() } });
+    expect((await get()).status).toBe(404);
+    expect((await request("PATCH", { tax: "2" })).status).toBe(404);
   });
 
-  it("404 for an unknown receipt", async () => {
-    const res = await patch("unknown-receipt", { merchantName: "Changed" });
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Receipt not found" } });
+  it.each(["FINALIZED", "PARSING"] as const)("blocks writes in %s state", async (state) => {
+    await prisma.receipt.update({ where: { id: receiptId }, data: state === "FINALIZED" ? { status: state } : { parseStatus: state } });
+    expect((await request("PATCH", { tax: "2" })).status).toBe(409);
   });
 
-  it.each(["receipt", "party"])("404 and no change when the %s is soft-deleted", async (resource) => {
-    if (resource === "receipt") {
-      await prisma.receipt.update({ where: { id: "receipt-edit-alice" }, data: { deletedAt: new Date() } });
-    } else {
-      await prisma.party.update({ where: { id: "receipt-party-alice" }, data: { deletedAt: new Date() } });
-    }
-    const res = await patch("receipt-edit-alice", { merchantName: "Changed" });
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Receipt not found" } });
-    const receipt = await prisma.receipt.findUniqueOrThrow({ where: { id: "receipt-edit-alice" } });
-    expect(receipt.merchantName).toBe("Original Bistro");
+  it("returns 401 for an unknown identity and 400 for malformed JSON", async () => {
+    identity.userId = "missing";
+    expect((await get()).status).toBe(401);
+    expect((await request("PATCH", { tax: "2" })).status).toBe(401);
+    identity.userId = "receipt-owner";
+    expect((await PATCH(new Request("http://test", { method: "PATCH", body: "{" }), context())).status).toBe(400);
   });
 
-  it("409 and no change for a finalized receipt", async () => {
-    await prisma.receipt.update({ where: { id: "receipt-edit-alice" }, data: { status: "FINALIZED" } });
-    const before = await (await get("receipt-edit-alice")).json();
-    const res = await patch("receipt-edit-alice", { merchantName: "Changed" });
-    expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: { code: "CONFLICT", message: "Receipt is finalized" } });
-    expect(await (await get("receipt-edit-alice")).json()).toEqual(before);
-  });
-
-  it("401 for an identity without a user row", async () => {
-    identity.userId = "unknown-user";
-    const res = await patch("receipt-edit-alice", { merchantName: "Changed" });
-    expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: { code: "UNAUTHENTICATED", message: "Unknown user" } });
+  it("allows exactly one correction for a shared expected revision", async () => {
+    const responses = await Promise.all(["One", "Two"].map((title) => request("PATCH", { title })));
+    expect(responses.map((res) => res.status).sort()).toEqual([200, 409]);
+    expect((await snapshot()).revision).toBe(2);
   });
 });
 
-describe("GET /api/receipts/[receiptId]", () => {
-  it("200 with the receipt details and items ordered by line number", async () => {
-    const res = await get("receipt-detail-alice");
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body).toMatchObject({
-      id: "receipt-detail-alice",
-      partyId: "receipt-party-alice",
-      paidByMemberId: null,
-      status: "UPLOADED",
-      splitMode: "EVEN",
-      merchantName: "Alice's Bistro",
-      address: "123 Main Street",
-      purchasedAt: "2026-10-01T18:30:00.000Z",
-      currency: "USD",
-      subtotal: null,
-      tax: null,
-      tip: null,
-      total: null,
-      createdAt: expect.any(String),
-    });
-    expect(body.items.map((item: { lineNumber: number }) => item.lineNumber)).toEqual([1, 2]);
-    expect(body.items.map((item: { name: string }) => item.name)).toEqual(["Dinner", "Tea"]);
-    expect(body).not.toHaveProperty("extraction");
-    expect(body).not.toHaveProperty("parseError");
-    expect(body).not.toHaveProperty("imageBlobName");
-    expect(body).not.toHaveProperty("deletedAt");
-  });
-
-  it("404 in the shared error shape when the receipt belongs to another user", async () => {
-    identity.userId = "receipt-bob";
-
-    const res = await get("receipt-detail-alice");
-
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({
-      error: { code: "NOT_FOUND", message: "Receipt not found" },
-    });
-  });
-});
-
-describe("PUT /api/receipts/[receiptId]/items", () => {
-  const receiptId = "receipt-items-alice";
-  const item = { lineNumber: 1, name: "Dinner", quantity: "1", unitPrice: "20.00", totalPrice: "20.00" };
-
-  function put(body: unknown, id = receiptId) {
-    return PUT(new Request(`http://test/api/receipts/${id}/items`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }), { params: Promise.resolve({ receiptId: id }) });
-  }
-
-  function snapshot(id = receiptId) {
-    return prisma.receipt.findUniqueOrThrow({
-      where: { id },
-      include: { items: { orderBy: { lineNumber: "asc" }, include: { shares: true } } },
-    });
-  }
-
-  beforeAll(async () => {
-    await prisma.receipt.create({
-      data: {
-        id: receiptId, partyId: "receipt-party-alice", uploadedById: "receipt-alice",
-        imageBlobName: "test/items.jpg", imageContentType: "image/jpeg",
-        merchantName: "Original Bistro", subtotal: "23.00", tax: "2.00", tip: "4.00", total: "29.00",
-      },
-    });
-    await prisma.receipt.create({
-      data: {
-        id: "receipt-items-bob", partyId: "receipt-party-bob", uploadedById: "receipt-bob",
-        imageBlobName: "test/bob.jpg", imageContentType: "image/jpeg",
-        items: { create: { ...item, shares: { create: { memberId: "receipt-member-bob", weight: 1 } } } },
-      },
-    });
-  });
-
-  beforeEach(async () => {
-    cache.revalidatePath.mockClear();
-    await prisma.receipt.update({ where: { id: receiptId }, data: { status: "PARSED", deletedAt: null } });
-    await prisma.itemShare.deleteMany({ where: { item: { receiptId } } });
-    await prisma.receiptItem.deleteMany({ where: { receiptId } });
-    await prisma.receiptItem.create({
-      data: { ...item, receiptId, shares: { create: { memberId: "receipt-member-alice", weight: 2 } } },
-    });
-  });
-
-  it("replaces all items, clears their shares, returns the GET shape, and revalidates", async () => {
-    const before = await (await get(receiptId)).json();
-    const other = await snapshot("receipt-items-bob");
-    const res = await put({
-      items: [
-        { ...item, lineNumber: 3, name: "  Tea  ", quantity: "0.125", unitPrice: "0", totalPrice: "0.00", id: "client-id", isVerified: false },
-        { ...item, lineNumber: 1, name: "Soup" },
-      ],
-      status: "FINALIZED", partyId: "receipt-party-bob", total: "999.00",
-    });
+describe("item replacement", () => {
+  it("replaces items, clears assignments/sharing/review, and preserves unrelated data", async () => {
+    await prisma.receipt.update({ where: { id: receiptId }, data: { splitMode: "SHARED_ITEMS" } });
+    await prisma.receiptItem.update({ where: { id: "receipt-dinner" }, data: { assignedParticipantId: "receipt-alex" } });
+    await prisma.sharedItemAllocation.createMany({ data: ["receipt-alex", "receipt-sam"].map((participantId) => ({
+      receiptId, itemId: "receipt-app", participantId,
+    })) });
+    const foreign = await prisma.receiptItem.findUniqueOrThrow({ where: { id: "receipt-foreign-item" } });
+    const res = await request("PUT", { items: [{ ...item, name: "  Soup  " }] });
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ...before, items: [
-      { id: expect.any(String), lineNumber: 1, name: "Soup", quantity: "1", unitPrice: "20", totalPrice: "20", isVerified: true },
-      { id: expect.any(String), lineNumber: 3, name: "Tea", quantity: "0.125", unitPrice: "0", totalPrice: "0", isVerified: true },
-    ] });
-    expect(body.items.map((row: { id: string }) => row.id)).not.toContain(before.items[0].id);
-    expect(body.items.map((row: { id: string }) => row.id)).not.toContain("client-id");
-    expect(await prisma.itemShare.count({ where: { item: { receiptId } } })).toBe(0);
-    expect(await (await get(receiptId)).json()).toEqual(body);
-    expect(await snapshot("receipt-items-bob")).toEqual(other);
-    expect(cache.revalidatePath).toHaveBeenCalledWith(`/api/receipts/${receiptId}`);
+    expect(body).toMatchObject({ revision: 2, reviewedAt: null, items: [{ name: "Soup", assignedParticipantId: null, sharedAllocations: [] }] });
+    expect(body.items[0].id).not.toBe("receipt-dinner");
+    expect(await prisma.sharedItemAllocation.count({ where: { receiptId } })).toBe(0);
+    expect(await prisma.receiptItem.findUniqueOrThrow({ where: { id: foreign.id } })).toEqual(foreign);
   });
 
-  it("allows a non-organizer member to clear the collection", async () => {
-    identity.userId = "receipt-charlie";
-    const res = await put({ items: [] });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({ items: [], status: "PARSED", total: "29" });
-    expect((await snapshot()).items).toEqual([]);
-  });
-
-  it("accepts the largest database values without rounding", async () => {
-    const res = await put({ items: [{
-      ...item, lineNumber: 2147483647, quantity: "9999999.999", unitPrice: "9999999999.99", totalPrice: "9999999999.99",
+  it("permits clearing items and database-sized decimal inputs", async () => {
+    expect((await request("PUT", { items: [] })).status).toBe(200);
+    const res = await request("PUT", { expectedRevision: 2, items: [{
+      ...item, quantity: "9999999.999", unitPrice: "9999999999.99", totalPrice: "9999999999.99",
     }] });
     expect(res.status).toBe(200);
-    expect((await res.json()).items[0]).toMatchObject({
-      lineNumber: 2147483647, quantity: "9999999.999", unitPrice: "9999999999.99", totalPrice: "9999999999.99",
-    });
-  });
-
-  it("400 for malformed JSON without changing items or shares", async () => {
-    const before = await snapshot();
-    const res = await PUT(new Request("http://test/items", { method: "PUT", body: "{" }), {
-      params: Promise.resolve({ receiptId }),
-    });
-    expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: { code: "INVALID_INPUT", message: "Body must be valid JSON" } });
-    expect(await snapshot()).toEqual(before);
-    expect(cache.revalidatePath).not.toHaveBeenCalled();
+    expect((await res.json()).items[0].quantity).toBe("9999999.999");
   });
 
   it.each([
-    {}, null, [], { items: null }, { items: {} }, { items: [{}] },
-    { items: [item, item] },
-    ...[
-      { lineNumber: 0 }, { lineNumber: -1 }, { lineNumber: 1.5 }, { lineNumber: "1" }, { lineNumber: 2147483648 },
-      { name: "  " }, { quantity: "0" }, { quantity: "0.000" }, { quantity: "-1" }, { quantity: 1 },
-      { quantity: "1.0001" }, { quantity: "10000000" }, { quantity: "1e2" },
-      { unitPrice: "-1.00" }, { unitPrice: "1.001" }, { unitPrice: 1 }, { unitPrice: "10000000000" },
-      { totalPrice: "10000000000.00" }, { totalPrice: "1e2" }, { totalPrice: null },
-    ].map((fields) => ({ items: [{ ...item, ...fields }] })),
-  ])("400 and no changes for invalid input %j", async (body) => {
+    {}, null, { items: null }, { items: [item, item] },
+    ...[{ lineNumber: 0 }, { name: " " }, { quantity: "0" }, { quantity: "1.0001" },
+      { quantity: "10000000" }, { unitPrice: "-1" }, { totalPrice: "10000000000" },
+      { unitPrice: 2 }].map((fields) => ({ items: [{ ...item, ...fields }] })),
+  ])("rejects invalid items %j without writes", async (input) => {
     const before = await snapshot();
-    const res = await put(body);
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: { code: "INVALID_INPUT", message: expect.any(String) } });
-    expect(await snapshot()).toEqual(before);
-    expect(cache.revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it("401 for an unknown identity", async () => {
-    const before = await snapshot();
-    identity.userId = "unknown-user";
-    const res = await put({ items: [] });
-    expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: { code: "UNAUTHENTICATED", message: "Unknown user" } });
+    expect((await request("PUT", input)).status).toBe(400);
     expect(await snapshot()).toEqual(before);
   });
 
-  it("404 for a foreign receipt without changing its items or shares", async () => {
-    const before = await snapshot();
-    identity.userId = "receipt-bob";
-    const res = await put({ items: [] });
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Receipt not found" } });
-    expect(await snapshot()).toEqual(before);
+  it("checks identity, ownership, deletion, parsing, finalization and stale revisions", async () => {
+    expect((await request("PUT", { items: [] }, "receipt-foreign")).status).toBe(404);
+    expect((await request("PUT", { items: [] }, "missing")).status).toBe(404);
+    identity.userId = "missing";
+    expect((await request("PUT", { items: [] })).status).toBe(401);
+    identity.userId = "receipt-owner";
+    expect((await request("PUT", { expectedRevision: 99, items: [] })).status).toBe(409);
+    await prisma.receipt.update({ where: { id: receiptId }, data: { parseStatus: "PARSING" } });
+    expect((await request("PUT", { items: [] })).status).toBe(409);
+    await prisma.receipt.update({ where: { id: receiptId }, data: { parseStatus: "SUCCEEDED", status: "FINALIZED" } });
+    expect((await request("PUT", { items: [] })).status).toBe(409);
+    await prisma.receipt.update({ where: { id: receiptId }, data: { deletedAt: new Date() } });
+    expect((await request("PUT", { items: [] })).status).toBe(404);
   });
 
-  it("404 for an unknown receipt", async () => {
-    const res = await put({ items: [] }, "unknown-receipt");
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Receipt not found" } });
-  });
-
-  it.each(["receipt", "party"])("404 when the %s is soft-deleted", async (resource) => {
-    if (resource === "receipt") {
-      await prisma.receipt.update({ where: { id: receiptId }, data: { deletedAt: new Date() } });
-    } else {
-      await prisma.party.update({ where: { id: "receipt-party-alice" }, data: { deletedAt: new Date() } });
-    }
+  it("restores deleted items and revision after a later insert fails", async () => {
     const before = await snapshot();
-    const res = await put({ items: [] });
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({ error: { code: "NOT_FOUND", message: "Receipt not found" } });
-    expect(await snapshot()).toEqual(before);
-  });
-
-  it("409 for a finalized receipt without changing items or shares", async () => {
-    await prisma.receipt.update({ where: { id: receiptId }, data: { status: "FINALIZED" } });
-    const before = await snapshot();
-    const res = await put({ items: [] });
-    expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: { code: "CONFLICT", message: "Receipt is finalized" } });
-    expect(await snapshot()).toEqual(before);
-  });
-
-  it("rolls back deleted items and shares when insertion fails and hides the database error", async () => {
-    const before = await snapshot();
-    await prisma.$executeRawUnsafe(`CREATE FUNCTION receipt_items_test_fail() RETURNS trigger AS $$
-      BEGIN
-        IF NEW.receipt_id = 'receipt-items-alice' AND NEW.name = 'Fail insert' THEN
-          RAISE EXCEPTION 'private database failure';
-        END IF;
-        RETURN NEW;
-      END;
-    $$ LANGUAGE plpgsql`);
+    await prisma.$executeRawUnsafe("CREATE FUNCTION receipt_insert_fail() RETURNS trigger AS $$ BEGIN IF NEW.name = 'Fail' THEN RAISE EXCEPTION 'private failure'; END IF; RETURN NEW; END; $$ LANGUAGE plpgsql");
+    await prisma.$executeRawUnsafe("CREATE TRIGGER receipt_insert_fail BEFORE INSERT ON receipt_items FOR EACH ROW EXECUTE FUNCTION receipt_insert_fail()");
     try {
-      await prisma.$executeRawUnsafe(`CREATE TRIGGER receipt_items_test_fail
-        BEFORE INSERT ON receipt_items FOR EACH ROW EXECUTE FUNCTION receipt_items_test_fail()`);
-      const res = await put({ items: [{ ...item, name: "Fail insert" }] });
+      const res = await request("PUT", { items: [{ ...item, name: "Fail" }] });
       expect(res.status).toBe(500);
       expect(await res.json()).toEqual({ error: { code: "INTERNAL", message: "Something went wrong" } });
       expect(await snapshot()).toEqual(before);
       expect(cache.revalidatePath).not.toHaveBeenCalled();
     } finally {
-      await prisma.$executeRawUnsafe("DROP TRIGGER IF EXISTS receipt_items_test_fail ON receipt_items");
-      await prisma.$executeRawUnsafe("DROP FUNCTION receipt_items_test_fail()");
+      await prisma.$executeRawUnsafe("DROP TRIGGER receipt_insert_fail ON receipt_items");
+      await prisma.$executeRawUnsafe("DROP FUNCTION receipt_insert_fail()");
     }
   });
 
-  it("concurrent replacements leave one complete collection", async () => {
-    const sets = [
-      [{ ...item, name: "A1" }, { ...item, lineNumber: 2, name: "A2" }],
-      [{ ...item, name: "B1" }, { ...item, lineNumber: 3, name: "B3" }],
-    ];
-    const responses = await Promise.all(sets.map((items) => put({ items })));
-    expect(responses.map((res) => res.status)).toEqual([200, 200]);
-    const bodies = await Promise.all(responses.map((res) => res.json()));
-    expect(bodies.map((body) => body.items.map((row: { name: string }) => row.name))).toEqual([
-      ["A1", "A2"], ["B1", "B3"],
-    ]);
-    const names = (await snapshot()).items.map((row) => row.name);
-    expect([["A1", "A2"], ["B1", "B3"]]).toContainEqual(names);
+  it("serializes concurrent replacements using their expected revision", async () => {
+    const responses = await Promise.all(["A", "B"].map((name) => request("PUT", { items: [{ ...item, name }] })));
+    expect(responses.map((res) => res.status).sort()).toEqual([200, 409]);
+    expect((await snapshot()).items).toHaveLength(1);
   });
 });
