@@ -11,13 +11,22 @@ bills always sum to the receipt total, with no missing or extra cent.
 ## Where it lives
 - `packages/db/prisma/schema.prisma`: `Receipt`, `ReceiptItem`,
   `ItemShare`, `Bill`.
-- `packages/domain/`: `allocateSplit()` (a pure function: receipt and
-  shares in, per-member cents out) and `finalizeReceipt()` (validates,
-  calls `allocateSplit`, and writes the bills and status in one
-  transaction).
+- `packages/domain/src/split.ts`: `allocateSplit()` (receipt and shares in,
+  per-member integer cents out) and decimal/cents conversion.
+- `packages/domain/src/bills.ts`: `finalizeReceipt()` validates, allocates,
+  and writes bills and status in one transaction.
+- `packages/domain/src/receipt-access.ts`: receipt scoping and parent lock.
+- `apps/web/app/api/receipts/[receiptId]/finalize/route.ts`: POST handler.
+- `packages/domain/tests/split.test.ts` and
+  `apps/web/tests/bills-route.test.ts`: arithmetic and route integration tests.
 
 ## Behavior
 - All arithmetic is in integer cents, never floats.
+- Identity is server-derived; an identity with no user row returns 401.
+  Any party member can finalize a visible receipt. Deleted receipts and
+  receipts in deleted parties return 404.
+- POST has no input body. Success returns 200 with the same receipt detail
+  projection as GET, including the new `FINALIZED` status and ordered items.
 - **Member subtotals.**
   - `EVEN` mode: every party member's exact subtotal is
     `receipt.subtotal ÷ member count`.
@@ -46,11 +55,21 @@ bills always sum to the receipt total, with no missing or extra cent.
   - `subtotal + tax + tip = total`
   - `subtotal > 0`
   - in `ITEMIZED` mode, every item has at least one share
+- Amounts must be non-negative. Itemized shares must reference this party's
+  members with positive integer weights. A supplied paidBy member must belong
+  to this party; a null payer is allowed and no member is settled as payer.
 - The bills and the `FINALIZED` status are written in one transaction.
   Finalizing an already-finalized receipt returns 409.
+- The receipt row is locked before reading its amounts, items, shares, and
+  party members. Item and allocation replacements take the same lock.
+- Concurrent finalizations produce one success and one 409, with one bill
+  per member. Failed bill insertion or status update restores the original
+  receipt and leaves no new bills.
 - The `paidBy` member also gets a bill, so the breakdown is complete. That
   bill counts as settled without any payment.
 - A foreign or unknown receipt id returns 404.
+- Success revalidates receipt detail and bill-list API paths. Unexpected
+  errors are logged and return generic 500 `INTERNAL`.
 
 ## Examples
 
@@ -71,10 +90,22 @@ bills always sum to the receipt total, with no missing or extra cent.
   exact share in each column.
 - An integration test: when a bill insert fails partway through
   finalizing, no bills are left behind and the status stays `PARSED`.
+- An integration test rejects the final status update after successful bill
+  inserts and verifies the entire transaction rolls back.
+- `pnpm typecheck` and `pnpm build` pass.
+- Drill with a seeded local server: POST
+  `/api/receipts/seed-receipt-demo/finalize` without a body returns 200;
+  GET `/api/receipts/seed-receipt-demo/bills` returns charges totaling 38.66.
+  A second POST returns 409; POST as other-user returns 404.
 
 ## Constraints & decisions
 - Largest remainder, not "round each share". Rounding every share on its
   own can leave the total off by several cents.
+- BigInt cents and reduced integer fractions retain exact item portions
+  across different weight sums. Remainder comparisons use cross-products,
+  with no float conversion or per-item rounding. Generated tests use a
+  deterministic seed and an independent denominator-product oracle, so no
+  property-testing dependency is required.
 - Tax and tip are rounded as separate columns. Each one then matches its
   receipt line exactly, so a member can check their share against the
   receipt.
@@ -90,4 +121,6 @@ bills always sum to the receipt total, with no missing or extra cent.
 ## Out of scope
 - AI parsing that fills the receipt fields: no spec yet.
 - Recording payments against bills: no spec yet.
+- Replacing item shares: [allocations](allocations.md).
+- Reading bills and settlement status: [list](list.md).
 - Viewing bills via a share link: see [public-share](public-share.md).

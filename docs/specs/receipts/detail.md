@@ -73,8 +73,8 @@ exposing storage locations, parser diagnostics, or another party's data.
 
 ## Out of scope
 - Listing a party's receipts: no implemented route or accepted feature spec.
-- Uploading, parsing, editing, or replacing receipt items: no accepted feature
-  specs yet.
+- Summary edits: [edit](edit.md); replacing line items: [items](items.md).
+- Uploading and parsing: no accepted feature specs yet.
 - Assigning item shares and generating bills: see
   [split-allocation](../bills/split-allocation.md) for finalization behavior.
 - Downloading the receipt image: no feature spec yet.
