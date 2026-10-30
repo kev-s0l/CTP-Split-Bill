@@ -58,6 +58,9 @@ Party APIs, guest authentication and public share links are outside this API.
 
 - pnpm test covers every implemented receipt/bill handler, including owner and
   foreign requests, validation, revision/state guards, rollback and concurrency.
+- apps/web/tests/bills-route.test.ts invokes both assignment handlers,
+  finalization, the receipt bill collection and the individual bill handler
+  using params.id or params.billsId and revision-bearing mutation bodies.
 - pnpm typecheck and pnpm build pass.
 - The seed drill in packages/domain/tests/receipts.test.ts reads, confirms and
   finalizes an owned receipt, checks total 38.66, and rejects other-user.
