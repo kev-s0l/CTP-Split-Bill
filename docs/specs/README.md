@@ -48,6 +48,7 @@ store issue state. See [CONTRIBUTING](../../CONTRIBUTING.md) for the full arc.
 |---|---|---|---|
 | [list](parties/list.md) | feature | List the parties I'm a member of, excludes soft-deleted | 0009, 0003 |
 | [create](parties/create.md) | feature | Create a party; the creator becomes organizer and first member | 0009, 0003 |
+| [members](parties/members.md) | feature | Organizer adds a user or guest to a party, or removes one with no bills | 0009, 0003 |
 
 ### Receipts domain (`receipts/`)
 

@@ -13,3 +13,4 @@ dist/
 .turbo
 .DS_Store
 .vscode
+.pnpm-store/
