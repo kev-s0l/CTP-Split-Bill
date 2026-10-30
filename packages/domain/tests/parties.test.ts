@@ -1,7 +1,7 @@
 // Parties domain against an in-memory PGlite database — docs/specs/parties/.
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@project/db";
-import { ApiError, CreateParty, createParty, listParties } from "../src";
+import { ApiError, CreateParty, createParty, getParty, listParties } from "../src";
 
 beforeAll(async () => {
   await prisma.user.createMany({
@@ -80,5 +80,54 @@ describe("listParties", () => {
     const listed = (await listParties("alice")).find((p) => p.id === party.id);
     expect(listed).toBeDefined();
     expect(listed).not.toHaveProperty("shareToken");
+  });
+});
+
+describe("getParty", () => {
+  const notFound = { code: "NOT_FOUND", status: 404, message: "Party not found" } satisfies Partial<ApiError>;
+
+  it("returns the party with its members, organizer first, guests with a null userId", async () => {
+    const party = await createParty("alice", { name: "Detail dinner" });
+    await prisma.partyMember.create({ data: { partyId: party.id, displayName: "Sam (guest)" } });
+
+    const detail = await getParty("alice", party.id);
+    expect(detail).toMatchObject({ id: party.id, name: "Detail dinner", organizerId: "alice" });
+    expect(detail.members.map((m) => [m.userId, m.displayName])).toEqual([
+      ["alice", "Alice"],
+      [null, "Sam (guest)"],
+    ]);
+  });
+
+  it("returns a party to a non-organizer member", async () => {
+    const bobs = await createParty("bob", { name: "Bob's detail" });
+    await prisma.partyMember.create({ data: { partyId: bobs.id, userId: "alice", displayName: "Alice" } });
+
+    expect((await getParty("alice", bobs.id)).members.map((m) => m.userId)).toEqual(["bob", "alice"]);
+  });
+
+  it("404s a party the caller is not a member of", async () => {
+    const bobs = await createParty("bob", { name: "Bob's private" });
+
+    await expect(getParty("alice", bobs.id)).rejects.toMatchObject(notFound);
+  });
+
+  it("404s an unknown party", async () => {
+    await expect(getParty("alice", "no-such-party")).rejects.toMatchObject(notFound);
+  });
+
+  it("404s a soft-deleted party", async () => {
+    const party = await createParty("alice", { name: "Deleted detail" });
+    await prisma.party.update({ where: { id: party.id }, data: { deletedAt: new Date() } });
+
+    await expect(getParty("alice", party.id)).rejects.toMatchObject(notFound);
+  });
+
+  it("never exposes the share token or member contact details", async () => {
+    const party = await createParty("alice", { name: "Shared detail" });
+    await prisma.party.update({ where: { id: party.id }, data: { shareToken: "detail-token" } });
+
+    const detail = await getParty("alice", party.id);
+    expect(detail).not.toHaveProperty("shareToken");
+    expect(Object.keys(detail.members[0]).sort()).toEqual(["displayName", "id", "joinedAt", "userId"]);
   });
 });
