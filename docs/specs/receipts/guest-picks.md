@@ -35,9 +35,11 @@ so the organizer only reviews and fixes the gaps before finalizing.
   ordered by lineNumber, every participant's id and display name, the token
   holder's participant id, each item's pickers, and the holder's done state.
   Phones, bills, owner id and image data are never returned.
-- PUT takes `{ expectedRevision, itemIds }`: the complete set of items the
-  holder had, at most 500 unique ids, each belonging to this receipt (404
-  otherwise). Under the receipt lock it reconciles the holder's rows only:
+- PUT takes `{ itemIds }`: the complete set of items the holder had, at most
+  500 unique ids, each belonging to this receipt (404 otherwise). It takes no
+  expectedRevision: a guest writes only their own rows, so guests picking at
+  the same moment are serialized on the receipt row lock instead of rejecting
+  each other. Under that lock it reconciles the holder's rows only:
   - An item picked by the holder alone becomes the holder's individual
     assignment.
   - An item picked by two or more participants becomes equal shared
@@ -46,7 +48,8 @@ so the organizer only reviews and fixes the gaps before finalizing.
   - Unpicking removes the holder from the item; a shared item left with one
     picker becomes that picker's individual assignment.
   - Other participants' picks are never removed by a guest write.
-  The revision advances; reviewedAt is kept because receipt content is
+  The revision advances, so an owner saving over a view from before the pick
+  gets 409 and reloads; reviewedAt is kept because receipt content is
   unchanged (same rule as bills/allocations.md).
 - POST done sets picksSubmittedAt to now; it is idempotent. A later PUT by the
   same holder clears it until they press done again.
@@ -57,7 +60,10 @@ so the organizer only reviews and fixes the gaps before finalizing.
   ready when submitted, or when they have no link (the owner picks for them).
 - Finalization is not gated on readiness. Its existing completeness rules in
   bills/split-allocation.md still apply.
-- Invalid input 400; stale revision 409. Failures roll back all changes.
+- The pick page sends `Referrer-Policy: no-referrer`, and request logging
+  records token routes without the token, so a link does not leak through
+  referrers or logs.
+- Invalid input 400. Failures roll back all changes.
 
 ## Examples
 
@@ -69,14 +75,16 @@ so the organizer only reviews and fixes the gaps before finalizing.
 | Item id from another receipt | 404, nothing written |
 | Token rotated, old link opened | 404 |
 | Receipt finalized, link opened | 404 |
-| Guest saves with an old revision | 409, guest reloads |
+| Maya and Sam save picks at the same moment | Both saved, one after the other |
+| Guest saves an item the owner has since removed | 404, guest reloads |
 | Sam presses done, then edits picks | picksSubmittedAt cleared until done again |
 
 ## Verify
 
 - pnpm test covers token issue/rotate/revoke, hash-only storage, the 404
   family, reconciliation of individual and shared rows, mode transitions,
-  stale revisions, rollback, and that phones never appear in token responses.
+  concurrent guest saves all landing, rollback, and that phones never appear
+  in token responses.
 - pnpm typecheck and pnpm build pass.
 - Drill: issue a link, open /p/<token> in a private window, pick items, then
   confirm the owner's receipt detail shows them and the participant is ready.

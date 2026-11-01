@@ -30,7 +30,10 @@ exactly one receipt.
   participant's display name, and which participants picked each item. It
   never returns phones, owner identity, blob names, extraction or bills.
 - A token can write only its own participant's picks and done flag, only while
-  the receipt is DRAFT and not PARSING, and only with expectedRevision.
+  the receipt is DRAFT and not PARSING. Guest writes take the receipt row lock
+  but no expectedRevision, because they never overwrite another person's rows.
+- The pick page sends `Referrer-Policy: no-referrer` and logs never record the
+  token, since the token travels in the URL path.
 - Unknown, revoked, finalized and deleted all return the same 404.
 - Ids are never accepted in place of a token on these routes.
 
@@ -40,8 +43,8 @@ exactly one receipt.
   reviewer can audit against this list.
 - Harder: a forwarded link lets its holder pick for that participant until it
   is rotated. Picks are not attributable beyond "whoever held the token".
-- Owner writes and guest writes share the receipt revision lock, so a guest
-  saving over a stale view gets 409 and reloads.
+- Guests picking at once are serialized, not rejected. Each guest write still
+  advances the revision, so an owner saving over a pre-pick view gets 409.
 - On acceptance, docs/specs/api.md and docs/specs/web.md gain a pointer to
   this exception, and ADR-0012 is marked superseded.
 
