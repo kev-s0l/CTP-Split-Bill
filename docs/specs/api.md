@@ -54,6 +54,13 @@ The history query exists in the domain package but is not wired to collection
 GET yet. Paid-state writes, upload/OCR and contact editing remain feature work.
 Party APIs, guest authentication and public share links are outside this API.
 
+Draft, pending review: PUT /api/receipts/[id]/participants
+(receipts/participants.md); totals on GET /api/receipts/[id]
+(receipts/totals-check.md); and, if ADR-0015 is accepted, owner-scoped
+POST/DELETE /api/receipts/[id]/participants/[participantId]/pick-link plus the
+token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
+(receipts/guest-picks.md). None of these exist yet.
+
 ## Verify
 
 - pnpm test covers every implemented receipt/bill handler, including owner and
