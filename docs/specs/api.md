@@ -38,6 +38,7 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | POST | /api/receipts/[id]/finalize | ExpectedRevision; calculate from stored reviewed data and return FINALIZED receipt detail | bills/split-allocation.md |
 | GET | /api/receipts/[id]/bills | Ordered bill array with settlement and outstanding amounts | bills/list.md |
 | GET | /api/bills/[billsId] | One owned bill identified by bill ID | bills/list.md |
+| PATCH | /api/bills/[billsId] | SetBillPaid with paid: boolean; updated bill with settlement and outstanding amounts | bills/list.md |
 
 The bracket names match their route directories. Receipt handlers read params.id;
 the individual bill handler reads params.billsId. Missing IDs never widen a query.
@@ -47,11 +48,11 @@ the individual bill handler reads params.billsId. Missing IDs never widen a quer
 These files carry responsibility comments and export no HTTP handlers yet:
 GET /api/me; GET/POST /api/receipts; GET /api/receipts/[id]/image;
 POST /api/receipts/[id]/parse; PUT /api/receipts/[id]/participants;
-POST /api/receipts/[id]/preview. The individual bill PATCH remains planned.
+POST /api/receipts/[id]/preview.
 Scaffold existence is not implemented functionality.
 
 The history query exists in the domain package but is not wired to collection
-GET yet. Paid-state writes, upload/OCR and contact editing remain feature work.
+GET yet. Upload/OCR and contact editing remain feature work.
 Party APIs, guest authentication and public share links are outside this API.
 
 ## Verify
@@ -61,6 +62,8 @@ Party APIs, guest authentication and public share links are outside this API.
 - apps/web/tests/bills-route.test.ts invokes both assignment handlers,
   finalization, the receipt bill collection and the individual bill handler
   using params.id or params.billsId and revision-bearing mutation bodies.
+- apps/web/tests/bills-paid-route.test.ts checks paid/unpaid PATCH, timestamp
+  preservation on retries, immutable amounts, invalid input and owner/deletion guards.
 - pnpm typecheck and pnpm build pass.
 - The seed drill in packages/domain/tests/receipts.test.ts reads, confirms and
   finalizes an owned receipt, checks total 38.66, and rejects other-user.
