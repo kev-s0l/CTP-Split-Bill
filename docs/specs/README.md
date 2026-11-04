@@ -40,6 +40,14 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 | [bill reads](bills/list.md) | Owner-only bill breakdowns and outstanding amounts |
 | [public sharing](bills/public-share.md) | Deferred public portals; current access remains organizer-only |
 
+## Draft features (under review, not implemented)
+
+| Spec | Behavior |
+|---|---|
+| [participants](receipts/participants.md) | Roster with default Guest N names and optional E.164 phones |
+| [guest picks](receipts/guest-picks.md) | Per-participant pick links, guest item picks and done status (needs ADR-0015) |
+| [totals check](receipts/totals-check.md) | Detail reports item/amount differences; mismatches still cannot finalize |
+
 Party specifications and APIs are retired. Historical SQL remains append-only.
 
 ## Verify
@@ -53,3 +61,4 @@ Party specifications and APIs are retired. Historical SQL remains append-only.
 - ADR-0004: Prisma schema and SQL migrations.
 - ADR-0009: web-only domain package.
 - ADR-0014: receipt-owned domain.
+- ADR-0015 (proposed): per-participant pick links.

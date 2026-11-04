@@ -104,8 +104,8 @@ deletes its line from this section.
   components currently render unstyled nested `<div>`s.
 - **No screen imports `BillCard`.** `apps/web/app/page.tsx` is still the
   starter skeleton, so nothing yet maps `Bill` rows to the five display
-  props, and `BillCard`'s `total: number` disagrees with the string that
-  [my-bills](bills/my-bills.md) says `GET /api/bills` returns. The first
+  props, and `BillCard`'s `total: number` disagrees with the two-decimal
+  string that [bill reads](bills/list.md) returns for `amountOwed`. The first
   caller resolves that in favour of the string — rule 5.
 
 ## Verify
