@@ -1,6 +1,7 @@
 // Real assignment, shared-allocation, finalize and bill handlers against PGlite, with only auth and cache mocked.
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@project/db";
+import { listParticipantBillsByPhone } from "@project/domain";
 
 const identity = vi.hoisted(() => ({ userId: "bill-alice" }));
 const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
@@ -366,6 +367,20 @@ describe("GET bills", () => {
     await prisma.receipt.update({ where: { id: receiptId }, data: { deletedAt: new Date() } });
     expect((await bill(sam.id)).status).toBe(404);
     expect((await bill("missing-bill")).status).toBe(404);
+  });
+
+  it("phone lookup returns the organizer's bills for that participant phone only", async () => {
+    await finalizeItemized();
+    const alex = await listParticipantBillsByPhone("bill-alice", " +12125550123 ");
+    expect(alex).toHaveLength(1);
+    expect(alex[0]).toMatchObject({ receiptId, participantId: "bill-alex", phone: "+12125550123", settled: true });
+    expect(await listParticipantBillsByPhone("bill-alice", "(212) 555-0123")).toEqual(alex);
+    expect(await listParticipantBillsByPhone("bill-alice", "+19995550000")).toEqual([]);
+    expect(await listParticipantBillsByPhone("bill-bob", "+12125550123")).toEqual([]);
+    await expect(listParticipantBillsByPhone("bill-alice", "  ")).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    await expect(listParticipantBillsByPhone("missing-user", "+12125550123")).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    await prisma.receipt.update({ where: { id: receiptId }, data: { deletedAt: new Date() } });
+    expect(await listParticipantBillsByPhone("bill-alice", "+12125550123")).toEqual([]);
   });
 
   it("maps unexpected read failures to a generic 500", async () => {

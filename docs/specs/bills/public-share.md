@@ -16,7 +16,8 @@ requiring a public portal or guest accounts.
 
 ## Behavior
 
-- Receipt and bill reads require organizer ownership.
+- Receipt and bill reads require organizer ownership, except the
+  phone-verified participant read in phone-lookup.md, which is not a link.
 - The database contains no public share token.
 - Preparing client share text does not create public access or mark a bill paid.
 

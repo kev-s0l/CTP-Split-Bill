@@ -6,6 +6,7 @@ import { ApiError } from "./errors";
 import { ExpectedRevision, receiptDetail, validateReceiptInformation } from "./receipt";
 import { lockEditableReceipt, receiptScope, requireReceiptUser } from "./receipt-access";
 import { allocateSplit, centsToMoney, toCents } from "./split";
+import { PhoneNumber } from "./phone-auth";
 
 const id = z.string().trim().min(1).max(200);
 export const ReplaceAssignments = ExpectedRevision.extend({
@@ -182,6 +183,40 @@ export async function listReceiptBills(userId: string, receiptId: string) {
   });
   if (!receipt) throw new ApiError("NOT_FOUND", "Receipt not found", 404);
   return receipt.bills.map((bill) => presentBill(bill, receipt.paidByParticipantId));
+}
+
+// Organizer-scoped: the phone is normalized, then matched only across the
+// organizer's own receipts.
+export async function listParticipantBillsByPhone(userId: string, phone: string) {
+  await requireReceiptUser(userId);
+  const parsed = PhoneNumber.safeParse(phone);
+  // Undefined Prisma filters are omitted; never let a missing phone widen a query.
+  if (!parsed.success) throw new ApiError("INVALID_INPUT", "phone: Enter a valid phone number", 400);
+  const bills = await prisma.bill.findMany({
+    where: { participant: { phone: parsed.data }, receipt: { ownerId: userId, deletedAt: null } },
+    select: { ...billDetail, receipt: { select: { paidByParticipantId: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+  });
+  return bills.map(({ receipt, ...detail }) => presentBill(detail, receipt.paidByParticipantId));
+}
+
+// Phone-scoped (ADR-0015): the verified phone is the authorization, across every
+// organizer's receipts. Adds receipt context a participant would otherwise lack.
+export async function listVerifiedPhoneBills(verifiedPhone: string) {
+  if (typeof verifiedPhone !== "string" || verifiedPhone === "") {
+    throw new ApiError("UNAUTHENTICATED", "Phone verification required", 401);
+  }
+  const bills = await prisma.bill.findMany({
+    where: { participant: { phone: verifiedPhone }, receipt: { deletedAt: null } },
+    select: {
+      ...billDetail,
+      receipt: { select: { paidByParticipantId: true, title: true, merchantName: true, purchasedAt: true, currency: true } },
+    },
+    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+  });
+  return bills.map(({ receipt: { paidByParticipantId, ...receipt }, ...detail }) => ({
+    ...presentBill(detail, paidByParticipantId), receipt,
+  }));
 }
 
 export async function getBill(userId: string, billId: string) {

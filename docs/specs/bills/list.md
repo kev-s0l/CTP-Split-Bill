@@ -10,7 +10,8 @@ remains unpaid, including their own share if they fronted the restaurant bill.
 
 ## Where it lives
 
-- packages/domain/src/bills.ts: listReceiptBills, getBill and common projection.
+- packages/domain/src/bills.ts: listReceiptBills, getBill, listParticipantBillsByPhone
+  and common projection.
 - apps/web/app/api/receipts/[id]/bills/route.ts: collection GET.
 - apps/web/app/api/bills/[billsId]/route.ts: individual GET.
 - apps/web/tests/bills-route.test.ts.
@@ -22,6 +23,11 @@ remains unpaid, including their own share if they fronted the restaurant bill.
 - Receipt bill GET returns an array ordered by participant joinedAt then id.
   Before finalization it returns [].
 - Individual GET takes a bill ID, not a receipt ID, and returns one object.
+- Organizer phone lookup (listParticipantBillsByPhone) normalizes a phone to
+  E.164 and returns every bill whose participant phone equals it across the
+  organizer's non-deleted receipts, newest first. No match returns []; an
+  invalid phone is INVALID_INPUT and never widens the query. It has no route
+  yet. The participant's own cross-organizer lookup is phone-lookup.md.
 - Bills include id, receiptId, participantId, displayName, phone, subtotal,
   taxShare, tipShare, amountOwed, paidAt, createdAt, settled and outstandingAmount.
 - Money uses decimal strings with two places. Dates use ISO strings or null.

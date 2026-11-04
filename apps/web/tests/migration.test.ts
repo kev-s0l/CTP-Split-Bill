@@ -143,3 +143,24 @@ describe("receipt remodel migration", () => {
     expect((await db.query("SELECT count(*)::int AS n FROM payments")).rows).toEqual([{ n: 1 }]);
   });
 });
+
+describe("phone verification migration", () => {
+  const phoneVerification = readFileSync(new URL("../../../packages/db/prisma/migrations/0003_phone_verification.sql", import.meta.url), "utf8");
+
+  it("normalizes participant phones to E.164 and leaves unparseable ones unchanged", async () => {
+    await db.exec(remodel);
+    const cases: [string, string | null, string | null][] = [
+      ["alex", "(212) 555-0123", "+12125550123"],
+      ["sam", "1-312-555-0000", "+13125550000"],
+      ["other-member", "0044 20 7946 0958", "+442079460958"],
+      ["gone-member", "ext 12", "ext 12"],
+    ];
+    for (const [id, phone] of cases) await db.query("UPDATE participants SET phone=$1 WHERE id=$2", [phone, id]);
+    await db.exec(phoneVerification);
+    for (const [id, , expected] of cases) {
+      expect((await db.query("SELECT phone FROM participants WHERE id=$1", [id])).rows).toEqual([{ phone: expected }]);
+    }
+    const tables = await db.query<{ tablename: string }>("SELECT tablename FROM pg_tables WHERE tablename LIKE 'phone_%' ORDER BY tablename");
+    expect(tables.rows.map((row) => row.tablename)).toEqual(["phone_sessions", "phone_verifications"]);
+  });
+});

@@ -11,6 +11,9 @@ All exports come from `src/index.ts`:
 | Export | What it does |
 |---|---|
 | `currentUserId()` | Returns the current user's ID. Reads from `x-user-id` request header, then `DEV_USER_ID` env var, then falls back to `demo-user`. |
+| `phoneSessionToken(req)` | Reads the raw `phone_session` cookie token, or `null`. The domain resolves it to a verified phone (ADR-0015). |
+| `phoneSessionCookie(token, expiresAt)` / `clearedPhoneSessionCookie()` | `Set-Cookie` values for issuing and clearing the phone session. |
+| `clientIp(req)` | First `X-Forwarded-For` entry, for rate limiting only. |
 
 ## Dependencies
 

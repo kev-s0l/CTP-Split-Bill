@@ -31,4 +31,5 @@ Start from [`_template.md`](_template.md).
 
 | Runbook | When |
 |---|---|
-| _(none yet — the first arrives with the deploy machinery)_ | |
+| [enable-twilio-sms](enable-twilio-sms.md) | Moving to Azure, or production cannot text verification codes |
+| [rotate-phone-auth-secret](rotate-phone-auth-secret.md) | Phone-auth secret, Twilio token or phone sessions may be compromised |

@@ -39,10 +39,15 @@ All exports come from `src/index.ts`:
 | `stagePayload(entityId, type)` | Returns a JSON string for `pg_notify` with a current timestamp |
 | `onStage(entityId, handler)` | Subscribes to live events via Postgres `LISTEN` on the `events` channel; returns an unsubscribe function |
 
+### SMS (`src/sms.ts`)
+
+| Export | What it does |
+|---|---|
+| `sendSms(to, message)` | Texts an E.164 number via Twilio's Messages API (plain `fetch`) when `TWILIO_ACCOUNT_SID` is set, using `TWILIO_AUTH_TOKEN` and `TWILIO_FROM`; otherwise logs the message. The log stand-in throws in production unless `ALLOW_DEV_SMS` is set. See ADR-0015. |
+
 ## Dependencies
 
-- `@project/log` — pino logger
-- `@azure/storage-blob` — Azure Blob SDK
+- `@project/log` — pino logger- `@azure/storage-blob` — Azure Blob SDK
 - `@azure/storage-queue` — Azure Queue SDK
 - `pg` — the PostgreSQL client driver (used by `notify.ts` for LISTEN)
 
