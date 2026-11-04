@@ -22,3 +22,4 @@ that supersedes the old one.
 | 0012 | [Public share link as the one unscoped read](0012-public-share-link.md) | Proposed |
 | 0013 | [Presentational components](0013-presentational-components.md) | Proposed |
 | 0014 | [Receipt-owned domain](0014-receipt-owned-domain.md) | Accepted |
+| 0015 | [Per-participant pick links as the one guest write](0015-guest-pick-links.md) | Proposed |
