@@ -13,13 +13,14 @@ All public routes are defined under `app/api/`:
 |---|---|---|
 | `/` | GET | Home page — boilerplate welcome message |
 | `/api/health` | GET | Health check — is the process alive? Can it reach the DB? |
+| `/api/auth/*` | GET, POST | Auth.js sign-in, OAuth callback, and session endpoints |
 
 ## Dependencies
 
 - `@project/db` — the Prisma client and generated types
 - `@project/services` — queue, storage, and notify adapters
 - `@project/domain` — Zod schemas and database queries (empty on main, populated on example branches)
-- `@project/auth` — the `currentUserId()` dev identity stub
+- `@project/auth` — Auth.js sessions and `currentUserId()`
 - `@project/log` — pino logger
 
 ## Consumers

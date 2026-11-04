@@ -55,7 +55,7 @@ packages/                       # shared libraries
 ├── services/                   #   Azure adapters (queue, storage, notify)
 ├── domain/                     #   Zod schemas + queries (web-only)
 ├── log/                        #   pino logger
-└── auth/                       #   dev identity stub (real auth in Week 8)
+└── auth/                       #   Auth.js GitHub OAuth + database sessions
 ```
 
 **Apps** are deployable. **Packages** are shared — no app imports from another app.

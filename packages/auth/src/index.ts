@@ -1,3 +1,3 @@
-// Re-exports the auth/identity layer. Currently a dev stub (currentUserId from
-// headers); replaced with real auth in Week 8.
+// Public server-side auth API for the web app.
 export { currentUserId } from "./current-user";
+export { auth, handlers, signIn, signOut } from "./auth";
