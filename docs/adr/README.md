@@ -19,7 +19,8 @@ that supersedes the old one.
 | 0009 | [Validation + queries live in a web-only domain package](0009-domain-web-only.md) | Accepted |
 | 0010 | [Reviewer-agent lifecycle and authority](0010-reviewer-agent-lifecycle.md) | Accepted |
 | 0011 | [Ideation pipeline + @research subagent](0011-ideation-pipeline.md) | Accepted |
-| 0012 | [Public share link as the one unscoped read](0012-public-share-link.md) | Proposed |
+| 0012 | [Public share link as the one unscoped read](0012-public-share-link.md) | Superseded by 0016 |
 | 0013 | [Presentational components](0013-presentational-components.md) | Proposed |
 | 0014 | [Receipt-owned domain](0014-receipt-owned-domain.md) | Accepted |
-| 0015 | [Phone verification as a second identity for participant bill reads](0015-phone-verified-participant-access.md) | Proposed |
+| 0015 | [Phone verification as a second identity for participant bill reads](0015-phone-verified-participant-access.md) | Withdrawn; superseded by 0016 |
+| 0016 | [Bill links as the one guest read](0016-bill-links.md) | Proposed |

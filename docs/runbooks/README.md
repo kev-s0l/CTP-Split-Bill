@@ -31,4 +31,4 @@ Start from [`_template.md`](_template.md).
 
 | Runbook | When |
 |---|---|
-| _(none yet — the first arrives with the deploy machinery)_ | |
+| [bill-link-exposed](bill-link-exposed.md) | A guest bill link reached someone it shouldn't have |

@@ -2,7 +2,8 @@
 
 ## Status
 
-Proposed
+Withdrawn before acceptance; superseded by ADR-0016 (bill links), which
+removes the need for a messaging provider.
 
 ## Context
 

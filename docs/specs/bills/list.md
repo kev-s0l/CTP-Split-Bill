@@ -27,7 +27,7 @@ remains unpaid, including their own share if they fronted the restaurant bill.
   E.164 and returns every bill whose participant phone equals it across the
   organizer's non-deleted receipts, newest first. No match returns []; an
   invalid phone is INVALID_INPUT and never widens the query. It has no route
-  yet. The participant's own cross-organizer lookup is phone-lookup.md.
+  yet. Guests read a single bill through a link (public-share.md).
 - Bills include id, receiptId, participantId, displayName, phone, subtotal,
   taxShare, tipShare, amountOwed, paidAt, createdAt, settled and outstandingAmount.
 - Money uses decimal strings with two places. Dates use ISO strings or null.
@@ -61,5 +61,5 @@ remains unpaid, including their own share if they fronted the restaurant bill.
 
 ## Out of scope
 
-- HTTP paid/unpaid PATCH, personalized message formatting, public links and
-  payment processing remain separate features.
+- HTTP paid/unpaid PATCH and payment processing remain separate features.
+  Guest links and their prepared text are public-share.md.

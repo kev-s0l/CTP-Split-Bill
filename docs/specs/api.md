@@ -15,7 +15,8 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 - Route handlers derive currentUserId, validate Zod inputs, call the web-only
   domain package, map errors and revalidate successful mutations.
 - Receipt.ownerId is the authorization boundary. Participant rows confer no
-  access. The client never supplies ownership identity.
+  access. The client never supplies ownership identity. The one exception is
+  the bill-link read, scoped by its token alone (ADR-0016).
 - Reads and writes exclude deleted receipts. Foreign, unknown and deleted
   resources return 404 without confirming their existence.
 - Draft writes require expectedRevision. The receipt lock checks owner, DRAFT,
@@ -38,6 +39,9 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | POST | /api/receipts/[id]/finalize | ExpectedRevision; calculate from stored reviewed data and return FINALIZED receipt detail | bills/split-allocation.md |
 | GET | /api/receipts/[id]/bills | Ordered bill array with settlement and outstanding amounts | bills/list.md |
 | GET | /api/bills/[billsId] | One owned bill identified by bill ID | bills/list.md |
+| POST | /api/bills/[billsId]/link | Issue or reissue the owned bill's guest link; 201 { url, expiresAt, message, smsHref } | bills/public-share.md |
+| DELETE | /api/bills/[billsId]/link | Revoke the owned bill's live link; 204 | bills/public-share.md |
+| GET | /api/bill-links/[token] | Public: the linked bill's guest projection, or a uniform 404 | bills/public-share.md |
 
 The bracket names match their route directories. Receipt handlers read params.id;
 the individual bill handler reads params.billsId. Missing IDs never widen a query.
@@ -52,7 +56,8 @@ Scaffold existence is not implemented functionality.
 
 The history query exists in the domain package but is not wired to collection
 GET yet. Paid-state writes, upload/OCR and contact editing remain feature work.
-Party APIs, guest authentication and public share links are outside this API.
+Party APIs and guest authentication are outside this API; guests read only
+through bill links.
 
 ## Verify
 
@@ -68,3 +73,4 @@ Party APIs, guest authentication and public share links are outside this API.
 - ADR-0003: development identity stub.
 - ADR-0009: web-only domain queries and validation.
 - ADR-0014: receipt ownership and receipt-local participants.
+- ADR-0016: bill links.

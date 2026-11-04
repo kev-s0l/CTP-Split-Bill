@@ -4,4 +4,5 @@ export * from "./errors";
 export * from "./receipt";
 export * from "./bills";
 export * from "./split";
-export * from "./phone-auth";
+export * from "./phone";
+export * from "./bill-links";

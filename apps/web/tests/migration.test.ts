@@ -144,23 +144,36 @@ describe("receipt remodel migration", () => {
   });
 });
 
-describe("phone verification migration", () => {
-  const phoneVerification = readFileSync(new URL("../../../packages/db/prisma/migrations/0003_phone_verification.sql", import.meta.url), "utf8");
+describe("bill links migration", () => {
+  const billLinks = readFileSync(new URL("../../../packages/db/prisma/migrations/0003_bill_links.sql", import.meta.url), "utf8");
 
   it("normalizes participant phones to E.164 and leaves unparseable ones unchanged", async () => {
     await db.exec(remodel);
-    const cases: [string, string | null, string | null][] = [
+    const cases: [string, string, string][] = [
       ["alex", "(212) 555-0123", "+12125550123"],
       ["sam", "1-312-555-0000", "+13125550000"],
       ["other-member", "0044 20 7946 0958", "+442079460958"],
       ["gone-member", "ext 12", "ext 12"],
     ];
     for (const [id, phone] of cases) await db.query("UPDATE participants SET phone=$1 WHERE id=$2", [phone, id]);
-    await db.exec(phoneVerification);
+    await db.exec(billLinks);
     for (const [id, , expected] of cases) {
       expect((await db.query("SELECT phone FROM participants WHERE id=$1", [id])).rows).toEqual([{ phone: expected }]);
     }
-    const tables = await db.query<{ tablename: string }>("SELECT tablename FROM pg_tables WHERE tablename LIKE 'phone_%' ORDER BY tablename");
-    expect(tables.rows.map((row) => row.tablename)).toEqual(["phone_sessions", "phone_verifications"]);
+  });
+
+  it("allows one live link per bill with unique token hashes", async () => {
+    await db.exec(remodel);
+    await db.exec(billLinks);
+    const link = (id: string, hash: string, revoked: string | null) => db.query(
+      "INSERT INTO bill_links (id, bill_id, token_hash, expires_at, revoked_at) VALUES ($1, 'bill-sam', $2, now() + interval '1 day', $3)",
+      [id, hash, revoked],
+    );
+    await link("old", "h1", "2026-01-01");
+    await link("live", "h2", null);
+    await expect(link("second-live", "h3", null)).rejects.toThrow(/bill_links_one_active_per_bill/);
+    await expect(link("dup-hash", "h2", "2026-01-01")).rejects.toThrow(/bill_links_token_hash_key/);
+    await expect(db.query("INSERT INTO bill_links (id, bill_id, token_hash, expires_at) VALUES ('x', 'missing', 'h4', now() + interval '1 day')"))
+      .rejects.toThrow(/bill_links_bill_id_fkey/);
   });
 });

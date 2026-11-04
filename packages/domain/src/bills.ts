@@ -6,7 +6,7 @@ import { ApiError } from "./errors";
 import { ExpectedRevision, receiptDetail, validateReceiptInformation } from "./receipt";
 import { lockEditableReceipt, receiptScope, requireReceiptUser } from "./receipt-access";
 import { allocateSplit, centsToMoney, toCents } from "./split";
-import { PhoneNumber } from "./phone-auth";
+import { PhoneNumber } from "./phone";
 
 const id = z.string().trim().min(1).max(200);
 export const ReplaceAssignments = ExpectedRevision.extend({
@@ -151,7 +151,7 @@ export async function finalizeReceipt(userId: string, receiptId: string, input: 
   });
 }
 
-const billDetail = {
+export const billDetail = {
   id: true, receiptId: true, participantId: true, subtotal: true, taxShare: true,
   tipShare: true, amountOwed: true, paidAt: true, createdAt: true,
   participant: { select: { displayName: true, phone: true } },
@@ -159,7 +159,7 @@ const billDetail = {
 
 type StoredBill = Prisma.BillGetPayload<{ select: typeof billDetail }>;
 
-function presentBill(bill: StoredBill, paidByParticipantId: string | null) {
+export function presentBill(bill: StoredBill, paidByParticipantId: string | null) {
   const { participant, ...amounts } = bill;
   const amountOwed = toCents(bill.amountOwed.toString());
   const settled = bill.paidAt !== null || bill.participantId === paidByParticipantId || amountOwed === 0n;
@@ -198,25 +198,6 @@ export async function listParticipantBillsByPhone(userId: string, phone: string)
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
   });
   return bills.map(({ receipt, ...detail }) => presentBill(detail, receipt.paidByParticipantId));
-}
-
-// Phone-scoped (ADR-0015): the verified phone is the authorization, across every
-// organizer's receipts. Adds receipt context a participant would otherwise lack.
-export async function listVerifiedPhoneBills(verifiedPhone: string) {
-  if (typeof verifiedPhone !== "string" || verifiedPhone === "") {
-    throw new ApiError("UNAUTHENTICATED", "Phone verification required", 401);
-  }
-  const bills = await prisma.bill.findMany({
-    where: { participant: { phone: verifiedPhone }, receipt: { deletedAt: null } },
-    select: {
-      ...billDetail,
-      receipt: { select: { paidByParticipantId: true, title: true, merchantName: true, purchasedAt: true, currency: true } },
-    },
-    orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-  });
-  return bills.map(({ receipt: { paidByParticipantId, ...receipt }, ...detail }) => ({
-    ...presentBill(detail, paidByParticipantId), receipt,
-  }));
 }
 
 export async function getBill(userId: string, billId: string) {

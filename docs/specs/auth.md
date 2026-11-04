@@ -15,7 +15,8 @@ local stand-in (see [seams](seams.md)) and a planted lesson.
 ## Target: session-derived identity, only
 
 - Auth.js v5 + Prisma adapter, database sessions, GitHub OAuth (one provider).
-- Public surface: landing, /login, /api/health, /api/auth/*. Everything else
+- Public surface: landing, /login, /api/health, /api/auth/*, and the bill-link
+  read (/b/*, /api/bill-links/*), whose token is its scope (ADR-0016). Everything else
   gated; signed-out API calls get 401, pages redirect to /login.
 - Identity comes from the session **only**. The client never supplies a user
   id — no header, no param, no dev-only bypass: dev signs in like prod.
@@ -33,3 +34,4 @@ app's feature epic executes it against this contract.
 ## Key decisions
 
 - [ADR-0003](../adr/0003-dev-identity-stub.md) — why the stub exists and how it's guarded.
+- [ADR-0016](../adr/0016-bill-links.md) — bill links, the one read with no identity.

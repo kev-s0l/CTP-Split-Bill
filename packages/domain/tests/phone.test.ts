@@ -1,6 +1,6 @@
 // Phone normalization: every stored and entered phone compares in E.164.
 import { describe, expect, it } from "vitest";
-import { normalizePhone, PhoneNumber } from "../src/phone-auth";
+import { normalizePhone, PhoneNumber } from "../src/phone";
 
 describe("normalizePhone", () => {
   it.each([

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by ADR-0016 before acceptance (links per bill, not per party).
 
 ## Context
 
