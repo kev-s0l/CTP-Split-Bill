@@ -27,8 +27,7 @@ on every branch, for every feature.
 Every route handler and Server Action, in order:
 1. derive identity (see [auth](auth.md)) →
 2. validate with the shared Zod schema (`packages/domain`) →
-3. query scoped by the derived user — or, for `/api/participant-bills` only,
-   by the verified phone (ADR-0015) →
+3. query scoped by the derived user →
 4. act →
 5. map errors →
 6. revalidate.
@@ -49,4 +48,3 @@ Every route handler and Server Action, in order:
 
 - [ADR-0003](../adr/0003-dev-identity-stub.md) — identity stub + production guard.
 - [ADR-0009](../adr/0009-domain-web-only.md) — schemas/queries live in `packages/domain`.
-- [ADR-0015](../adr/0015-phone-verified-participant-access.md) — the phone-scoped read.

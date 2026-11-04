@@ -13,11 +13,11 @@
   "dependencies": {
     "@azure/storage-blob": "^12.26.0",
     "@azure/storage-queue": "^12.25.0",
-    "@project/log": "workspace:*",
-    "pg": "^8.13.0"
+    "pg": "^8.13.0",
+    "@project/log": "workspace:*"
   },
   "devDependencies": {
-    "@types/pg": "^8.11.0",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "@types/pg": "^8.11.0"
   }
 }
