@@ -5,29 +5,24 @@ type: infrastructure
 
 Who the current user is, and how every server entry learns it.
 
-## Today: the dev identity stub
+## Session-derived identity
 
-`packages/auth/` resolves the current user from the `x-user-id` header, then
-`DEV_USER_ID`, then a fallback — **deliberately naive**, and guarded: it throws
-in production unless `ALLOW_DEV_IDENTITY` is set. This is the auth seam's
-local stand-in (see [seams](seams.md)) and a planted lesson.
-
-## Target: session-derived identity, only
-
-- Auth.js v5 + Prisma adapter, database sessions, GitHub OAuth (one provider).
-- Public surface: landing, /login, /api/health, /api/auth/*. Everything else
-  gated; signed-out API calls get 401, pages redirect to /login.
-- Identity comes from the session **only**. The client never supplies a user
-  id — no header, no param, no dev-only bypass: dev signs in like prod.
-- First sign-in creates the user (name/avatar from GitHub).
-
-The swap from stub to sessions is epic work — a `sign-in` ticket in the
-app's feature epic executes it against this contract.
+- Auth.js v5 uses the Prisma adapter, database sessions, and GitHub OAuth as its
+  only provider.
+- Public surface: landing, `/api/health`, and `/api/auth/*`. Other pages require
+  a session; signed-out API calls receive 401 and signed-out pages redirect to
+  Auth.js's sign-in endpoint.
+- Identity comes only from the Auth.js session's local database user ID. No
+  request header, URL parameter, or development fallback supplies identity.
+- First sign-in creates a local user from GitHub's verified primary email,
+  display name (or login fallback), and avatar.
+- Sign-out removes the database session so it cannot be reused.
 
 ## Constraints & decisions
 
 - One provider (GitHub); more is out of scope.
-- After the swap, the string `x-user-id` appears nowhere in the codebase.
+- Historical rationale for the removed development identity is recorded in
+  [ADR-0003](../adr/0003-dev-identity-stub.md).
 - Roles/admin, account deletion + export: future work with a privacy doc.
 
 ## Key decisions

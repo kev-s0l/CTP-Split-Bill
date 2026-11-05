@@ -3,16 +3,16 @@ type: infrastructure
 ---
 # Seams — the unifying pattern
 
-The same shape appears across every cloud dependency in this project:
+Local infrastructure uses stand-ins; production connects to Azure services.
+Identity uses the same GitHub OAuth flow in development and production:
 
 ```
 local dev:  a stand-in (emulator, stub, env flag)
 production: the real thing (Azure, real auth, etc.)
 ```
 
-The stand-in is the default. Production is a single environment variable away.
 This is called the **seam pattern** — a deliberate cut point where local and
-production behavior diverge, controlled by configuration, not code branches.
+production infrastructure behavior diverges, controlled by configuration.
 
 ## Instances
 
@@ -22,22 +22,21 @@ production behavior diverge, controlled by configuration, not code branches.
 | Database (dev) | Local Postgres via `apps/db-server/` | Azure Postgres | `DATABASE_URL` |
 | Blob storage | Azurite | Azure Blob Storage | `AZURE_STORAGE_CONNECTION_STRING` |
 | Queue | Azurite | Azure Storage Queue | `AZURE_STORAGE_CONNECTION_STRING` |
-| Identity | Dev stub (`x-user-id` header, env fallback) | Real auth (OAuth, JWTs) | `ALLOW_DEV_IDENTITY` guard + package replacement |
+| Identity | GitHub OAuth with Auth.js database sessions | Same Auth.js flow | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, `AUTH_SECRET` |
 
 ## Design intent
 
 - **No code branches.** The seam is never an `if (isLocal)`. The stand-in and
   the real thing implement the same interface, and the configuration chooses
   which one the SDK connects to.
-- **Default to running.** Every seam works out of the box with zero cloud
-  setup. `pnpm dev` starts the stand-ins (Postgres, Azurite).
-- **Safe by default.** The identity stub, and any other stand-in that could
-  be a security risk, throws in production unless explicitly overridden.
-- **One env var per seam.** Azure Blob and Queue share
+- **Default to running.** Local infrastructure works without cloud accounts.
+  `pnpm dev` starts Postgres and Azurite; GitHub OAuth needs app credentials.
+- **Safe by default.** Identity comes from a validated OAuth flow and a
+  server-side database session.
+- **Configuration stays explicit.** Azure Blob and Queue share
   `AZURE_STORAGE_CONNECTION_STRING`; the database has its own
-  (`DATABASE_URL`); identity has its own (`ALLOW_DEV_IDENTITY`). Each seam
-  is a distinct env var away from production, and none requires more than
-  one.
+  (`DATABASE_URL`); OAuth uses the GitHub client credentials and session
+  secret listed above.
 
 ## ADRs
 
