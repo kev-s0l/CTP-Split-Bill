@@ -18,7 +18,9 @@ into whatever screen renders it next.
   slots: `Card`, `CardHeader`, `CardBody`, `CardFooter`.
 - `apps/web/app/components/BillCard.tsx` — `BillCard`, the bills-domain
   composition of those slots.
-- `apps/web/app/globals.css` — `@import "tailwindcss"`; the only stylesheet.
+- `apps/web/app/globals.css` — `@import "tailwindcss"` plus the design
+  tokens; the only stylesheet.
+- `apps/web/app/layout.tsx` — the app shell every page renders inside.
 - No component lives in `packages/` ([ADR-0013](../adr/0013-presentational-components.md)).
 
 ## The contract
@@ -50,11 +52,45 @@ A file in `apps/web/app/components/` holds to all seven:
    `route.ts`, `layout.tsx`, `loading.tsx`, and `error.tsx` are routable
    names inside `app/`; a component using one would become a URL.
 
+## Design tokens
+
+Tokens are declared once, in a Tailwind `@theme` block in `globals.css`, and
+generate the utilities components use. Components name **semantic tokens
+only** — `bg-surface`, `text-ink-muted`, `border-line`, `rounded-card` —
+never a raw palette step such as `neutral-200` or `blue-600`, so a theme
+change is an edit to `globals.css` and nowhere else.
+
+| Token | Utility | Means |
+|---|---|---|
+| `--color-canvas` | `bg-canvas` | page background behind cards |
+| `--color-surface` | `bg-surface` | card and header background |
+| `--color-line` | `border-line` | borders and slot dividers |
+| `--color-ink` | `text-ink` | primary text |
+| `--color-ink-muted` | `text-ink-muted` | labels and secondary text |
+| `--color-accent` / `--color-accent-ink` | `text-accent`, `bg-accent` / `text-accent-ink` | links and primary actions, and text on them |
+| `--color-danger` | `text-danger` | error text |
+| `--radius-card` | `rounded-card` | card corner radius |
+| `--font-sans` | `font-sans` | the system UI font stack |
+
+Spacing, type scale, and shadow use Tailwind's defaults. Dark mode follows
+the operating system: a `prefers-color-scheme: dark` block redefines the
+color tokens, so components carry no `dark:` utilities.
+
+## The shell
+
+`layout.tsx` renders the shell around every page: a `canvas` background, a
+`surface` header bar holding the app name as a link to `/`, and a single
+`<main>` content column (`max-w-2xl`). Pages render inside that `<main>` and
+do not render their own.
+
 ## The primitive
 
 `Card` is a non-interactive container. It renders a wrapper `<div>` and its
 children; the three slots each render one `<div>`. It has no semantics of its
-own — no `<article>`, no heading level, no `role`, no `tabIndex`. **A card
+own — no `<article>`, no heading level, no `role`, no `tabIndex`. Visually it
+is a `surface` panel with a `line` border and `rounded-card` corners; header
+and footer are separated from the body by `line` dividers, and the footer
+uses `text-ink-muted` at small size. **A card
 that must be clickable gets an `<a>` or `<button>` from its caller, inside a
 slot**, so the interactive element is a real one and keyboard and screen
 reader behavior come from the platform rather than from ARIA.
@@ -67,8 +103,9 @@ produce a footer-first card, and review is the only guard
 ## The composition
 
 `BillCard` renders one bill's summary into the three slots: `restaurant` in
-the header, `paidTo` / `partyCount` / `total` in the body, and `date` in the
-footer behind the literal label `Date Created:`.
+the header, `paidTo` / `partyCount` / `total` in the body as a description
+list labelled `Paid to`, `People`, and `You owe` (total emphasised), and `date`
+in the footer behind the literal label `Date Created:`.
 
 Its five props map to data the caller must assemble and format:
 
@@ -77,7 +114,7 @@ Its five props map to data the caller must assemble and format:
 | `restaurant` | `Receipt.merchantName` (nullable) | supply a fallback — the prop is `string`, not `string \| null` |
 | `paidTo` | `Receipt.paidByParticipantId` → `Participant.displayName` (payer nullable) | resolve the receipt-local participant and supply a fallback |
 | `partyCount` | count of participants billed on the receipt | count it in the query, not in the component |
-| `total` | `Bill.amountOwed`, a `Decimal` serialized as a string | format for display |
+| `total` | `Bill.amountOwed`, a `Decimal` serialized as a string | format for display — the prop is `string` |
 | `date` | `Bill.createdAt` or `Receipt.purchasedAt`, a `DateTime` | format for display |
 
 `BillCard` presents a bill; it does not decide which bills exist or who may
@@ -92,21 +129,16 @@ standard in [web](web.md) — owned by the screen, not by the card.
 | Structure, composition, and what a component may import | Which screens render which card |
 | That props are display-ready | The formatting helpers that make them so — they do not exist yet |
 | That `Card` is non-interactive | Focus management, dialogs, listboxes — the trigger to revisit [ADR-0013](../adr/0013-presentational-components.md) |
-| Tailwind utilities as the styling mechanism | The design tokens (spacing, radius, color scale) — not chosen yet |
+| Tailwind utilities and the semantic design tokens | Per-screen layout beyond the shell's content column |
 
 ## Known gaps against this contract
 
-Two statements above are contract, not yet fact. A PR that closes either
-deletes its line from this section.
+One statement above is contract, not yet fact. A PR that closes it deletes
+its line from this section.
 
-- **`Card`'s and `BillCard`'s `className` attributes are empty strings.** The
-  structure is in place; no Tailwind utilities have been applied, so the
-  components currently render unstyled nested `<div>`s.
 - **No screen imports `BillCard`.** `apps/web/app/page.tsx` is still the
   starter skeleton, so nothing yet maps `Bill` rows to the five display
-  props, and `BillCard`'s `total: number` disagrees with the two-decimal
-  string that [bill reads](bills/list.md) returns for `amountOwed`. The first
-  caller resolves that in favour of the string — rule 5.
+  props.
 
 ## Verify
 
@@ -118,10 +150,14 @@ deletes its line from this section.
   returns nothing.
 - Rule 2 is a grep: `grep -r "use client" apps/web/app/components/` returns
   nothing while no component owns state.
-- There are no component tests. A rendering test asserting the three slots
-  appear in order, with a literal props object, is the honest test here — one
-  that fails if `Card` stops rendering `children`. Until it exists, this
-  spec is verified by the greps and the build.
+- `apps/web/tests/components.test.ts` renders the components to static
+  markup with literal props: `Card`'s slots appear in the order given (fails
+  if `Card` stops rendering `children`), `Card` carries token utilities, and
+  `BillCard` renders its display strings untouched.
+- Token rule is a grep: `grep -rE "(neutral|gray|slate|zinc|blue)-[0-9]" apps/web/app/`
+  returns nothing.
+- Visual pass: `pnpm dev`, open `/` in light and dark OS themes — the header,
+  canvas, and starter panel use the token colors in both.
 
 ## Key ADRs
 

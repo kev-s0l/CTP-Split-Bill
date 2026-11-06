@@ -1,1 +1,35 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens — see docs/specs/components.md, "Design tokens".
+ * Components use only these semantic names (bg-surface, text-ink-muted,
+ * border-line, rounded-card, …), never raw palette steps, so a theme change
+ * is an edit here and nowhere else.
+ */
+@theme {
+  --color-canvas: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-line: #e4e4e0;
+  --color-ink: #1c1c1a;
+  --color-ink-muted: #6b6b66;
+  --color-accent: #0f766e;
+  --color-accent-ink: #ffffff;
+  --color-danger: #b42318;
+
+  --radius-card: 0.75rem;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #121211;
+    --color-surface: #1c1c1a;
+    --color-line: #33332f;
+    --color-ink: #ededea;
+    --color-ink-muted: #a3a39d;
+    --color-accent: #2dd4bf;
+    --color-accent-ink: #042f2e;
+    --color-danger: #f97066;
+  }
+}
