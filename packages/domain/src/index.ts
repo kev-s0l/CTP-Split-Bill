@@ -4,4 +4,5 @@ export * from "./errors";
 export * from "./receipt";
 export * from "./bills";
 export * from "./split";
+export * from "./participants";
 // export * from "./members";
