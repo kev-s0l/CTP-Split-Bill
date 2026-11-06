@@ -1,39 +1,30 @@
-# @project/auth — identity / auth
+# @project/auth — identity and sessions
 
-The "who is the current user?" logic. Currently a deliberately naive dev stub.
-In Week 8 it's replaced with real authentication shared across the web app
-and the worker.
+The shared Auth.js configuration for the web app. GitHub is the only provider,
+and Auth.js stores sessions in Postgres through the Prisma adapter.
 
 ## Public API
 
-All exports come from `src/index.ts`:
+Exports come from `src/index.ts`:
 
-| Export | What it does |
+| Export | Purpose |
 |---|---|
-| `currentUserId()` | Returns the current user's ID. Reads from `x-user-id` request header, then `DEV_USER_ID` env var, then falls back to `demo-user`. |
+| `auth()` | Read the current Auth.js session. |
+| `currentUserId()` | Return the session's local `User.id`, or an empty string when signed out. Domain operations map the missing user to the standard 401 response. |
+| `handlers` | Auth.js route handlers for OAuth, sign-in, and sign-out. |
+| `signIn`, `signOut` | Auth.js server actions for app forms. |
 
-## Dependencies
+## Configuration
 
-- `next` — for `next/headers` (the dev stub reads the HTTP request's headers)
+The web app requires `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, and `AUTH_SECRET`.
+Register `http://localhost:3000/api/auth/callback/github` as the local GitHub
+OAuth callback URL. The Prisma adapter uses `@project/db`; the auth package
+does not create a separate database client.
 
-## Consumers
+## Identity rules
 
-- `apps/web` — via `@project/auth`
-
-## The dev stub
-
-```ts
-currentUserId()
-  1. x-user-id request header (if present)
-  2. DEV_USER_ID env var (if set)
-  3. "demo-user" (created by the seed script)
-```
-
-In development, this trusts the client to say who they are. That's intentional.
-Week 8 replaces it with real auth (OAuth, JWTs, middleware) that works for both
-the web app and the worker.
-
-## Disabled in production
-
-The dev stub throws if `NODE_ENV === "production"` unless `ALLOW_DEV_IDENTITY` is
-set. Real auth in Week 8 removes this guard.
+- User identity comes only from the database session.
+- GitHub's verified primary email is required. The display name falls back to
+  the GitHub login when no display name is set.
+- Every protected data operation is scoped by the local `User.id`.
+- No development user fallback or request-supplied user ID is accepted.

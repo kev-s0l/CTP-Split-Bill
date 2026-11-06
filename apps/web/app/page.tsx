@@ -1,20 +1,11 @@
-// Boilerplate home page. Shows the current dev user and a link to the health
-// check endpoint. Example branches replace this with their own app-specific UI.
-import { currentUserId } from "@project/auth";
+// Public landing page with a link to the health check endpoint.
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const userId = await currentUserId();
-
+export default function Home() {
   return (
     <div className="space-y-8">
       <header>
         <h1 className="text-2xl font-bold">Starter Skeleton</h1>
-        <p className="text-sm text-ink-muted">
-          Signed in as <code className="rounded bg-canvas px-1">{userId}</code> (dev
-          identity stub — real auth arrives in Week 8)
-        </p>
+        <p className="text-sm text-neutral-500">A place to organize shared receipt splits.</p>
       </header>
 
       <section className="rounded-card border border-line bg-surface p-6">
