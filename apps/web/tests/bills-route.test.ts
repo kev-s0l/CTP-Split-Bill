@@ -10,6 +10,7 @@ vi.mock("next/cache", () => cache);
 const { PUT: PUT_ASSIGNMENTS } = await import("../app/api/receipts/[id]/assignments/route");
 const { PUT: PUT_ALLOCATIONS } = await import("../app/api/receipts/[id]/shared-allocations/route");
 const { POST } = await import("../app/api/receipts/[id]/finalize/route");
+const { POST: POST_PREVIEW } = await import("../app/api/receipts/[id]/preview/route");
 const { GET: GET_BILLS } = await import("../app/api/receipts/[id]/bills/route");
 const { GET: GET_BILL } = await import("../app/api/bills/[billsId]/route");
 const { PUT: PUT_ITEMS } = await import("../app/api/receipts/[id]/items/route");
@@ -22,18 +23,20 @@ const steak = "bill-steak";
 const appetizer = "bill-app";
 const reviewedAt = new Date("2026-01-01T00:00:00Z");
 const writeEndpoints = ["assignments", "allocations", "finalize"] as const;
-const receiptEndpoints = [...writeEndpoints, "bills"] as const;
-const handlers = { assignments: PUT_ASSIGNMENTS, allocations: PUT_ALLOCATIONS, finalize: POST, bills: GET_BILLS };
+const revisionEndpoints = [...writeEndpoints, "preview"] as const;
+const receiptEndpoints = [...revisionEndpoints, "bills"] as const;
+const handlers = { assignments: PUT_ASSIGNMENTS, allocations: PUT_ALLOCATIONS, finalize: POST, preview: POST_PREVIEW, bills: GET_BILLS };
 type Endpoint = keyof typeof handlers;
 const validBodies = {
   assignments: { expectedRevision: 1, assignments: [{ itemId: steak, participantId: alice }] },
   allocations: { expectedRevision: 1, allocations: [{ itemId: appetizer, participantIds: [alice, guest] }] },
   finalize: { expectedRevision: 1 },
+  preview: { expectedRevision: 1 },
   bills: undefined,
 };
 
 function request(endpoint: Endpoint, body: unknown = validBodies[endpoint], params = { id: receiptId }) {
-  const method = endpoint === "bills" ? "GET" : endpoint === "finalize" ? "POST" : "PUT";
+  const method = endpoint === "bills" ? "GET" : endpoint === "finalize" || endpoint === "preview" ? "POST" : "PUT";
   const path = endpoint === "allocations" ? "shared-allocations" : endpoint;
   return handlers[endpoint](new Request(`http://test/api/receipts/${params.id}/${path}`, {
     method,
@@ -155,7 +158,7 @@ describe("receipt endpoint access and revision guards", () => {
     await expectUnchanged(await request(endpoint), before, 404, "NOT_FOUND");
   });
 
-  it.each(writeEndpoints)("%s rejects finalized, parsing and stale writes", async (endpoint) => {
+  it.each(revisionEndpoints)("%s rejects finalized, parsing and stale revisions", async (endpoint) => {
     const before = await snapshot();
     await expectUnchanged(await request(endpoint, { ...validBodies[endpoint], expectedRevision: 99 }), before, 409, "CONFLICT");
     await prisma.receipt.update({ where: { id: receiptId }, data: { parseStatus: "PARSING" } });
@@ -166,17 +169,17 @@ describe("receipt endpoint access and revision guards", () => {
     await expectUnchanged(await request(endpoint), finalized, 409, "CONFLICT");
   });
 
-  it.each(writeEndpoints)("%s requires a valid expectedRevision", async (endpoint) => {
+  it.each(revisionEndpoints)("%s requires a valid expectedRevision", async (endpoint) => {
     const before = await snapshot();
     for (const expectedRevision of [undefined, 0, -1, 1.5, "1", 2147483647]) {
       await expectUnchanged(await request(endpoint, { ...validBodies[endpoint], expectedRevision }), before, 400, "INVALID_INPUT");
     }
   });
 
-  it.each(writeEndpoints)("%s rejects malformed JSON and non-object bodies", async (endpoint) => {
+  it.each(revisionEndpoints)("%s rejects malformed JSON and non-object bodies", async (endpoint) => {
     const before = await snapshot();
     const response = await handlers[endpoint](new Request("http://test", {
-      method: endpoint === "finalize" ? "POST" : "PUT", body: "{",
+      method: endpoint === "finalize" || endpoint === "preview" ? "POST" : "PUT", body: "{",
     }), { params: Promise.resolve({ id: receiptId }) });
     await expectError(response, 400, "INVALID_INPUT", "Body must be valid JSON");
     for (const body of [null, [], "invalid"]) {
@@ -362,6 +365,90 @@ describe.each(["assignments", "allocations"] as const)("%s reference checks and 
     expect(bills.map((bill: { amountOwed: string }) => bill.amountOwed)).toEqual(final.status === 200
       ? ["32.25", "6.45", "0.00"]
       : endpoint === "assignments" ? ["38.70", "0.00", "0.00"] : ["25.80", "6.45", "6.45"]);
+  });
+});
+
+describe("POST preview", () => {
+  it.each(["EVEN", "ITEMIZED", "SHARED_ITEMS"] as const)("previews %s without writes and matches finalization", async (splitMode) => {
+    if (splitMode !== "SHARED_ITEMS") {
+      await prisma.sharedItemAllocation.deleteMany({ where: { receiptId } });
+      await prisma.receipt.update({ where: { id: receiptId }, data: { splitMode } });
+      if (splitMode === "EVEN") {
+        await prisma.receiptItem.updateMany({ where: { receiptId }, data: { assignedParticipantId: null } });
+      } else {
+        await prisma.receiptItem.update({ where: { id: appetizer }, data: { assignedParticipantId: guest } });
+      }
+    }
+    const before = await snapshot();
+    const response = await request("preview", { expectedRevision: 1, amountOwed: "0.00" });
+    expect(response.status).toBe(200);
+    const preview = await response.json();
+    expect(preview).toEqual({
+      receiptId, revision: 1, currency: "USD",
+      allocations: [alice, guest, charlie].map((participantId) => ({
+        participantId, subtotal: expect.any(String), taxShare: expect.any(String),
+        tipShare: expect.any(String), amountOwed: expect.any(String),
+      })),
+    });
+    expect(preview.allocations.map((allocation: { amountOwed: string }) => allocation.amountOwed)).toEqual(
+      splitMode === "EVEN" ? ["12.90", "12.90", "12.90"]
+        : splitMode === "ITEMIZED" ? ["25.80", "12.90", "0.00"] : ["32.25", "6.45", "0.00"],
+    );
+    expect(await snapshot()).toEqual(before);
+    const repeated = await request("preview");
+    expect(repeated.status).toBe(200);
+    expect(await repeated.json()).toEqual(preview);
+    expect(await snapshot()).toEqual(before);
+    expect(cache.revalidatePath).not.toHaveBeenCalled();
+
+    expect((await request("finalize", { expectedRevision: preview.revision })).status).toBe(200);
+    const finalized = await snapshot();
+    expect(finalized.bills.map(({ participantId, subtotal, taxShare, tipShare, amountOwed }) => ({
+      participantId, subtotal: subtotal.toFixed(2), taxShare: taxShare.toFixed(2),
+      tipShare: tipShare.toFixed(2), amountOwed: amountOwed.toFixed(2),
+    }))).toEqual(preview.allocations);
+  });
+
+  it("uses deterministic cent rounding and null tip for a reviewed failed parse", async () => {
+    await prisma.sharedItemAllocation.deleteMany({ where: { receiptId } });
+    await prisma.receiptItem.deleteMany({ where: { receiptId, id: appetizer } });
+    await prisma.receiptItem.update({ where: { id: steak }, data: { assignedParticipantId: null, unitPrice: "10", totalPrice: "10" } });
+    await prisma.receipt.update({ where: { id: receiptId }, data: {
+      splitMode: "EVEN", subtotal: "10", tax: "0", tip: null, total: "10", parseStatus: "FAILED",
+    } });
+    const before = await snapshot();
+    const response = await request("preview");
+    expect(response.status).toBe(200);
+    expect((await response.json()).allocations).toEqual([
+      { participantId: alice, subtotal: "3.34", taxShare: "0.00", tipShare: "0.00", amountOwed: "3.34" },
+      { participantId: guest, subtotal: "3.33", taxShare: "0.00", tipShare: "0.00", amountOwed: "3.33" },
+      { participantId: charlie, subtotal: "3.33", taxShare: "0.00", tipShare: "0.00", amountOwed: "3.33" },
+    ]);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it.each([{ reviewedAt: null }, { subtotal: null }, { total: "99.00" }])("rejects invalid receipt data %j", async (data) => {
+    await prisma.receipt.update({ where: { id: receiptId }, data });
+    const before = await snapshot();
+    await expectUnchanged(await request("preview"), before, 400, "INVALID_INPUT");
+  });
+
+  it("rejects unverified items", async () => {
+    await prisma.receiptItem.update({ where: { id: steak }, data: { isVerified: false } });
+    const before = await snapshot();
+    await expectUnchanged(await request("preview"), before, 400, "INVALID_INPUT");
+  });
+
+  it("rejects incomplete assignments", async () => {
+    await prisma.sharedItemAllocation.deleteMany({ where: { receiptId, itemId: appetizer } });
+    const before = await snapshot();
+    await expectUnchanged(await request("preview"), before, 400, "INVALID_INPUT");
+  });
+
+  it("rejects a missing session", async () => {
+    const before = await snapshot();
+    identity.userId = "";
+    await expectUnchanged(await request("preview"), before, 401, "UNAUTHENTICATED");
   });
 });
 

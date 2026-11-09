@@ -11,7 +11,7 @@ tax, tip and total columns match the corrected restaurant receipt.
 ## Where it lives
 
 - packages/domain/src/split.ts: unchanged pure BigInt/fraction allocator.
-- packages/domain/src/bills.ts: owner-locked finalization and input translation.
+- packages/domain/src/bills.ts: owner-locked finalization and shared preview/finalization input translation.
 - apps/web/app/api/receipts/[id]/finalize/route.ts: POST.
 - packages/domain/tests/split.test.ts and apps/web/tests/bills-route.test.ts.
 
@@ -73,5 +73,5 @@ tax, tip and total columns match the corrected restaurant receipt.
 
 ## Out of scope
 
-- Preview HTTP implementation, reopening finalized receipts, recording payments,
+- Preview is described in preview.md. Reopening finalized receipts, recording payments,
   weighted splitting and automatic SMS delivery.

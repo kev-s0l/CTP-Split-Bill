@@ -2,7 +2,7 @@
 // + content column) and global styles. No layout logic — just structure and
 // metadata. Shell and tokens: docs/specs/components.md.
 import type { Metadata } from "next";
-import "./globals.css";
+// import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Split Bill",

@@ -181,3 +181,52 @@ export async function replaceReceiptItems(userId: string, receiptId: string, inp
     return tx.receipt.update({ where: scope, data: { reviewedAt: null }, select: receiptDetail });
   });
 }
+
+export function validateReceiptUpload(form: FormData, maxBytes: number): File {
+  const entries = Array.from(form.entries());
+  if (entries.length !== 1 || entries[0][0] !== "file" || typeof entries[0][1] === "string") {
+    throw new ApiError("INVALID_INPUT", "Provide exactly one receipt photo in the file field", 400);
+  }
+
+  const file = entries[0][1];
+  const metadata = z.object({
+    type: z.enum(["image/jpeg", "image/png", "image/webp"], {
+      errorMap: () => ({ message: "Receipt photo must be JPEG, PNG or WebP" }),
+    }),
+    size: z.number().int().min(1, "Receipt photo must not be empty")
+      .max(maxBytes, `Receipt photo must be at most ${maxBytes} bytes`),
+  }).safeParse({ type: file.type, size: file.size });
+  if (!metadata.success) {
+    throw new ApiError("INVALID_INPUT", metadata.error.issues[0].message, 400);
+  }
+  return file;
+}
+
+export function validateReceiptImage(data: ArrayBuffer, contentType: string): void {
+  const bytes = new Uint8Array(data);
+  const matches = (signature: number[], offset = 0) =>
+    bytes.length >= offset + signature.length && signature.every((value, index) => bytes[offset + index] === value);
+  const valid = contentType === "image/jpeg" ? matches([0xff, 0xd8, 0xff])
+    : contentType === "image/png" ? matches([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    : contentType === "image/webp" && matches([0x52, 0x49, 0x46, 0x46]) && matches([0x57, 0x45, 0x42, 0x50], 8);
+  if (!valid) {
+    throw new ApiError("INVALID_INPUT", "Photo contents do not match its content type", 400);
+  }
+}
+
+export async function createReceipt(
+  userId: string,
+  input: { id: string; imageBlobName: string; imageContentType: string },
+) {
+  await requireReceiptUser(userId);
+
+  return prisma.receipt.create({
+    data: {
+      id: input.id,
+      ownerId: userId,
+      imageBlobName: input.imageBlobName,
+      imageContentType: input.imageContentType,
+    },
+    select: receiptDetail,
+  });
+}

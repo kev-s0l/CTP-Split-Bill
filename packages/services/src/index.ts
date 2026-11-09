@@ -5,6 +5,7 @@
 export { queueClient, enqueue, type JobMessage, encodeJobMessage, decodeJobMessage } from "./queue";
 export {
   uploadAttachment,
+  deleteAttachment,
   downloadAttachment,
   storageAvailable,
   safeBlobName,

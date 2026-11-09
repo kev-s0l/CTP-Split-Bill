@@ -26,9 +26,10 @@ All exports come from `src/index.ts`:
 
 | Export | What it does |
 |---|---|
-| `uploadAttachment(entityId, filename, contentType, data)` | Uploads a blob; returns the blob name |
+| `uploadAttachment(entityId, filename, contentType, data)` | Initializes the container if needed, uploads a blob and returns its name |
+| `deleteAttachment(blobName)` | Deletes a blob if it exists; storage failures propagate to the caller |
 | `downloadAttachment(blobName)` | Downloads a blob; returns `{ data, contentType }` or `null` |
-| `storageAvailable()` | Checks whether blob storage is reachable |
+| `storageAvailable()` | Initializes the container if needed and probes its metadata; returns false on failure |
 | `safeBlobName(entityId, filename)` | Creates a safe, namespaced blob name from a user-supplied filename |
 | `MAX_ATTACHMENT_BYTES` | 5 MB — the attachment size cap |
 

@@ -18,11 +18,13 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
   access. The client never supplies ownership identity.
 - Reads and writes exclude deleted receipts. Foreign, unknown and deleted
   resources return 404 without confirming their existence.
-- Draft writes require expectedRevision. The receipt lock checks owner, DRAFT,
+- Updates to existing drafts require expectedRevision. Creation starts at revision
+  1. The receipt lock checks owner, DRAFT,
   non-PARSING state and revision, then advances revision transactionally.
 - Errors use { error: { code, message } }. Invalid JSON/input is 400; unknown
   user 401; absent/foreign 404; stale/state conflicts 409; unexpected failures
-  generic 500. Prisma P2002 maps to 409 and P2025 to 404.
+  generic 500. Receipt image storage failures return 503 with code INTERNAL and
+  a retry message. Prisma P2002 maps to 409 and P2025 to 404.
 - Health is the documented public exception and retains its probe response.
 
 ## Implemented operations
@@ -30,11 +32,15 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | Method | Route | Input / result | Spec |
 |---|---|---|---|
 | GET | /api/health | 200 process/DB health; 503 when DB is unavailable | web.md |
+| GET | /api/me | Session user's id, name, email, image and phone; private, uncached response | auth/profile.md |
+| GET | /api/receipts | Owned, non-deleted receipt history, newest first | receipts/detail.md |
+| POST | /api/receipts | One multipart file; 201 owned draft and Location; JPEG/PNG/WebP up to 5 MiB | receipts/upload.md |
 | GET | /api/receipts/[id] | Owned receipt, revision, parsing/review state, participants, ordered items and allocations | receipts/detail.md |
 | PATCH | /api/receipts/[id] | UpdateReceipt; corrections, split mode or review confirmation; receipt detail | receipts/edit.md |
 | PUT | /api/receipts/[id]/items | ReplaceItems with expectedRevision; full replacement clears assignments/sharing/review | receipts/items.md |
 | PUT | /api/receipts/[id]/assignments | ReplaceAssignments with expectedRevision and assignments: [{itemId, participantId}]; receipt detail | bills/allocations.md |
 | PUT | /api/receipts/[id]/shared-allocations | ReplaceSharedAllocations with expectedRevision and allocations: [{itemId, participantIds}]; receipt detail | bills/allocations.md |
+| POST | /api/receipts/[id]/preview | ExpectedRevision; read-only participant allocations for the stored draft revision | bills/preview.md |
 | POST | /api/receipts/[id]/finalize | ExpectedRevision; calculate from stored reviewed data and return FINALIZED receipt detail | bills/split-allocation.md |
 | GET | /api/receipts/[id]/bills | Ordered bill array with settlement and outstanding amounts | bills/list.md |
 | GET | /api/bills/[billsId] | One owned bill identified by bill ID | bills/list.md |
@@ -45,14 +51,13 @@ the individual bill handler reads params.billsId. Missing IDs never widen a quer
 
 ## Planned scaffolds
 
-These files carry responsibility comments and export no HTTP handlers yet:
-GET /api/me; GET/POST /api/receipts; GET /api/receipts/[id]/image;
-POST /api/receipts/[id]/parse; PUT /api/receipts/[id]/participants;
-POST /api/receipts/[id]/preview.
+These receipt files carry responsibility comments and export no HTTP handlers yet:
+GET /api/receipts/[id]/image;
+POST /api/receipts/[id]/parse; PUT /api/receipts/[id]/participants.
 Scaffold existence is not implemented functionality.
 
-The history query exists in the domain package but is not wired to collection
-GET yet. Upload/OCR and contact editing remain feature work.
+Collection GET is wired to the owner-scoped history query. Upload creates an
+unparsed draft; OCR and contact editing remain feature work.
 Party APIs, guest authentication and public share links are outside this API.
 
 Draft, pending review: PUT /api/receipts/[id]/participants
@@ -64,13 +69,18 @@ token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
 
 ## Verify
 
+- apps/web/tests/me-route.test.ts checks exact own-profile reads, nullable
+  fields, identity changes, fresh reads, authentication and generic failures.
 - pnpm test covers every implemented receipt/bill handler, including owner and
   foreign requests, validation, revision/state guards, rollback and concurrency.
 - apps/web/tests/bills-route.test.ts invokes both assignment handlers,
-  finalization, the receipt bill collection and the individual bill handler
+  preview, finalization, the receipt bill collection and the individual bill handler
   using params.id or params.billsId and revision-bearing mutation bodies.
 - apps/web/tests/bills-paid-route.test.ts checks paid/unpaid PATCH, timestamp
   preservation on retries, immutable amounts, invalid input and owner/deletion guards.
+- apps/web/tests/receipts-upload-route.test.ts checks multipart input, image
+  signatures/size, authentication, ownership/defaults, storage failures and
+  cleanup. The opt-in Azurite drill is in receipts/upload.md.
 - pnpm typecheck and pnpm build pass.
 - The seed drill in packages/domain/tests/receipts.test.ts reads, confirms and
   finalizes an owned receipt, checks total 38.66, and rejects other-user.

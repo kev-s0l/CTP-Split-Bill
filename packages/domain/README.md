@@ -9,8 +9,9 @@ assignments, and calculates immutable participant bills. See
 
 ## Public API
 
-All exports come from `src/index.ts`: receipt reads/corrections, individual and
-shared assignments, finalization, bill reads, validation and API error helpers.
+All exports come from `src/index.ts`: current-user profile reads, receipt
+reads/corrections, individual and shared assignments, finalization, bill reads,
+validation and API error helpers.
 The pure split engine remains shared by finalization's input adapter.
 
 ## Dependencies

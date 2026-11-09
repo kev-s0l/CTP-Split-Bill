@@ -27,15 +27,24 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 | [observability](observability.md) | Logging and request context |
 | [components](components.md) | Presentational web components |
 
+## Identity features
+
+| Spec | Behavior |
+|---|---|
+| [sign-in](auth/sign-in.md) | GitHub OAuth and database-backed sessions |
+| [profile](auth/profile.md) | Current organizer's selected profile fields and private, uncached reads |
+
 ## Receipt and bill features
 
 | Spec | Behavior |
 |---|---|
 | [receipt model](receipts/model.md) | Direct ownership, receipt-local participants and atomic legacy migration |
+| [receipt upload](receipts/upload.md) | Validated photo upload and owned draft creation with failed-write cleanup |
 | [receipt detail](receipts/detail.md) | Owner-only receipt, participant and item projection |
 | [receipt corrections](receipts/edit.md) | Versioned metadata/money edits and review confirmation |
 | [receipt items](receipts/items.md) | Atomic corrected-item replacement and assignment cleanup |
 | [assignments](bills/allocations.md) | One-person item assignments and separate equal shared allocations |
+| [preview](bills/preview.md) | Read-only allocation breakdown for a stored draft revision |
 | [finalization](bills/split-allocation.md) | Exact-cent server calculation and immutable bill snapshots |
 | [bill reads](bills/list.md) | Owner-only bill breakdowns and outstanding amounts |
 | [public sharing](bills/public-share.md) | Deferred public portals; current access remains organizer-only |

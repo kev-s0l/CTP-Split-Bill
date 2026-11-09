@@ -19,6 +19,9 @@ and inspect a finalized receipt without exposing internal parser/blob data.
 
 - Existing identity is required (401 otherwise). Only Receipt.ownerId authorizes
   access; missing, foreign and deleted receipts return 404.
+- Collection GET returns only owned, non-deleted receipts, ordered by createdAt
+  descending then id ascending, with id, title, merchantName, purchasedAt, status, total
+  and createdAt.
 - GET returns id, ownerId, title, payer participant, business/parse/split state,
   revision, review/finalization timestamps, merchant/address/purchase date,
   currency, nullable amounts, creation/update times, participants and items.
@@ -56,5 +59,5 @@ and inspect a finalized receipt without exposing internal parser/blob data.
 
 ## Out of scope
 
-- Collection HTTP listing, upload, parsing and image download remain scaffolds.
+- Upload is described in upload.md. Parsing and image download remain scaffolds.
 - Corrections: edit.md; item replacement: items.md; domain structure: model.md.
