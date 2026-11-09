@@ -1,6 +1,5 @@
 ---
 type: feature
-status: draft
 ---
 # The organizer saves who is splitting a receipt, with optional phone numbers
 
@@ -24,16 +23,17 @@ and a phone number is optional, needed only to text that person a pick link.
   1–50 entries, in display order. Uses the owner/DRAFT/revision lock.
 - An entry with an id must be a participant of this receipt (404 otherwise)
   and keeps that id. An entry without an id is created. Existing participants
-  missing from the list are removed.
+  missing from the list are removed.The same id twice is 400.
+- The saved order is the order sent (joinedAt is rewritten to match).
 - displayName is trimmed, 1–50 characters. Blank or missing becomes
   "Guest N", where N is the entry's 1-based position.
 - phone is optional. When present it is normalized to E.164 (US numbers may be
   entered without +1); anything that does not normalize returns 400 with
-  message `phone: Enter a valid phone number`. An empty string clears it.
-  Phones need not be unique.
+  message `phone: Enter a valid phone number`. An empty string clears it; an ommitted phone keeps the stored one.
+  Phones dont need not to be unique.
 - Removing a participant that is the receipt's payer, or that has an
   assignment or shared allocation, returns 409 `CONFLICT`; the organizer
-  unassigns first. Removing one with a pick link revokes it.
+  unassigns first. Removing one with a pick link revokes it, once pick links exist (receipts/guest-picks.md); today there are none to revoke.
 - Changing names or phones keeps reviewedAt; the revision advances.
 - Success returns receipt detail. Phones appear only in owner responses
   (receipts/detail.md) and never in pick-link responses
@@ -54,7 +54,7 @@ and a phone number is optional, needed only to text that person a pick link.
 
 ## Verify
 
-- pnpm test covers default naming, trimming, phone normalization and
+- pnpm test (participants-put-route.test.ts) covers default naming, trimming, phone normalization and
   rejection, id retention, removal guards, rollback and stale revisions.
 - pnpm typecheck and pnpm build pass.
 
