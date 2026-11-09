@@ -14,7 +14,7 @@ and a phone number is optional, needed only to text that person a pick link.
 
 - packages/domain/src/participants.ts: ReplaceParticipants and the roster
   transaction.
-- apps/web/app/api/receipts/[id]/participants/route.ts: PUT (today a scaffold).
+- apps/web/app/api/receipts/[id]/participants/route.ts: implemented PUT.
 - packages/db/prisma/schema.prisma: Participant.displayName and phone, which
   already exist; no migration.
 

@@ -49,11 +49,13 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 | [bill reads](bills/list.md) | Owner-only bill breakdowns and outstanding amounts |
 | [public sharing](bills/public-share.md) | Deferred public portals; current access remains organizer-only |
 
-## Draft features (under review, not implemented)
+## Draft features (under review)
 
 | Spec | Behavior |
 |---|---|
-| [participants](receipts/participants.md) | Roster with default Guest N names and optional E.164 phones |
+| [receipt image](receipts/image.md) | Private owner-scoped photo download with missing-blob and outage handling |
+| [receipt parsing](receipts/parse.md) | Proposed local OCR, guarded draft replacement and recoverable parsing failures |
+| [participants](receipts/participants.md) | Implemented roster replacement; document still marked draft |
 | [guest picks](receipts/guest-picks.md) | Per-participant pick links, guest item picks and done status (needs ADR-0015) |
 | [totals check](receipts/totals-check.md) | Detail reports item/amount differences; mismatches still cannot finalize |
 
