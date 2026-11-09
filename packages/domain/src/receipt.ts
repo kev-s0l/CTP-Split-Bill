@@ -124,6 +124,19 @@ export async function getReceipt(userId: string, receiptId: string) {
   return receipt;
 }
 
+export async function getReceiptImage(userId: string, receiptId: string) {
+  await requireReceiptUser(userId);
+  const image = await prisma.receipt.findFirst({
+    where: receiptScope(userId, receiptId),
+    select: { imageBlobName: true, imageContentType: true },
+  });
+  if (!image) throw new ApiError("NOT_FOUND", "Receipt not found", 404);
+  if (!["image/jpeg", "image/png", "image/webp"].includes(image.imageContentType)) {
+    throw new ApiError("INTERNAL", "Receipt image is unavailable", 500);
+  }
+  return image;
+}
+
 export async function updateReceipt(userId: string, receiptId: string, input: UpdateReceiptInput) {
   await requireReceiptUser(userId);
   const scope = receiptScope(userId, receiptId);

@@ -55,9 +55,9 @@ and inspect a finalized receipt without exposing internal parser/blob data.
 
 - Explicit projection prevents future columns leaking into API responses.
 - Owner-only authorization follows ADR-0014. Reads do not recalculate bills.
-- Serving an image needs its own authorized endpoint implementation.
+- Authorized image retrieval is described in image.md.
 
 ## Out of scope
 
-- Upload is described in upload.md. Parsing and image download remain scaffolds.
+- Upload: upload.md; parsing: parse.md; image download: image.md.
 - Corrections: edit.md; item replacement: items.md; domain structure: model.md.

@@ -7,4 +7,5 @@ export * from "./bills";
 export * from "./split";
 export * from "./user";
 export * from "./participants";
+export * from "./receipt-parsing";
 // export * from "./members";

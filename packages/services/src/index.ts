@@ -12,3 +12,4 @@ export {
   MAX_ATTACHMENT_BYTES,
 } from "./storage";
 export { stagePayload, onStage } from "./notify";
+export { recognizeReceipt } from "./ocr";

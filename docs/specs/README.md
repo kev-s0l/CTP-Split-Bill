@@ -39,6 +39,8 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 | Spec | Behavior |
 |---|---|
 | [receipt model](receipts/model.md) | Direct ownership, receipt-local participants and atomic legacy migration |
+| [receipt image](receipts/image.md) | Private owner-scoped photo download with missing-blob and outage handling |
+| [receipt parsing](receipts/parse.md) | Local OCR, guarded draft replacement and recoverable parsing failures |
 | [receipt upload](receipts/upload.md) | Validated photo upload and owned draft creation with failed-write cleanup |
 | [receipt detail](receipts/detail.md) | Owner-only receipt, participant and item projection |
 | [receipt corrections](receipts/edit.md) | Versioned metadata/money edits and review confirmation |
@@ -53,8 +55,6 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 
 | Spec | Behavior |
 |---|---|
-| [receipt image](receipts/image.md) | Private owner-scoped photo download with missing-blob and outage handling |
-| [receipt parsing](receipts/parse.md) | Proposed local OCR, guarded draft replacement and recoverable parsing failures |
 | [participants](receipts/participants.md) | Implemented roster replacement; document still marked draft |
 | [guest picks](receipts/guest-picks.md) | Per-participant pick links, guest item picks and done status (needs ADR-0015) |
 | [totals check](receipts/totals-check.md) | Detail reports item/amount differences; mismatches still cannot finalize |

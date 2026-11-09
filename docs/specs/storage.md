@@ -25,6 +25,8 @@ to `UseDevelopmentStorage=true`, which connects to Azurite at `127.0.0.1:10000`
   container if needed, uploads bytes and returns the blob name.
 - `deleteAttachment(blobName)` deletes an existing blob, succeeds if it is
   already absent, and propagates storage failures to the caller.
+- Missing blobs alone return null on download; transport, permission and
+  missing-container errors propagate. Receipt routes map outages to 503.
 - `downloadAttachment(blobName)` → `{ data, contentType }` or null.
 - `safeBlobName(entityId, filename)` sanitizes the user filename and namespaces
   it under the entity ID: `<entityId>/<sanitized-name>`.

@@ -61,8 +61,9 @@ export async function downloadAttachment(
     const res = await blockBlob.download(0);
     const data = new Uint8Array(await streamToBuffer(res.readableStreamBody!));
     return { data, contentType: res.contentType ?? "application/octet-stream" };
-  } catch {
-    return null;
+  } catch (error) {
+    if ((error as { code?: unknown } | null)?.code === "BlobNotFound") return null;
+    throw error;
   }
 }
 

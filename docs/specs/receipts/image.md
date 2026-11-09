@@ -1,6 +1,5 @@
 ---
 type: feature
-status: draft
 ---
 # The organizer retrieves the stored receipt photo privately
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
+import { Readable } from "node:stream";
 
 const storage = vi.hoisted(() => ({
   fromConnectionString: vi.fn(),
@@ -8,13 +9,14 @@ const storage = vi.hoisted(() => ({
   getBlockBlobClient: vi.fn(),
   uploadData: vi.fn(),
   deleteIfExists: vi.fn(),
+  download: vi.fn(),
 }));
 
 vi.mock("@azure/storage-blob", () => ({
   BlobServiceClient: { fromConnectionString: storage.fromConnectionString },
 }));
 
-import { deleteAttachment, safeBlobName, storageAvailable, uploadAttachment } from "../src/storage";
+import { deleteAttachment, downloadAttachment, safeBlobName, storageAvailable, uploadAttachment } from "../src/storage";
 
 let containerExists = false;
 
@@ -30,6 +32,7 @@ beforeEach(() => {
   storage.getBlockBlobClient.mockReturnValue({
     uploadData: storage.uploadData,
     deleteIfExists: storage.deleteIfExists,
+    download: storage.download,
   });
   storage.createIfNotExists.mockImplementation(async () => {
     await Promise.resolve();
@@ -42,6 +45,35 @@ beforeEach(() => {
   storage.uploadData.mockImplementation(async () => {
     if (!containerExists) throw new Error("Container not found");
     return {};
+  });
+});
+
+describe("downloadAttachment", () => {
+  it("returns bytes and content type from the blob stream", async () => {
+    storage.download.mockResolvedValueOnce({
+      readableStreamBody: Readable.from([Buffer.from([0, 255]), Buffer.from([1])]), contentType: "image/png",
+    });
+    expect(await downloadAttachment("receipt/photo.png")).toEqual({ data: Uint8Array.from([0, 255, 1]), contentType: "image/png" });
+    expect(storage.getBlockBlobClient).toHaveBeenCalledWith("receipt/photo.png");
+  });
+
+  it("returns null only for BlobNotFound", async () => {
+    storage.download.mockRejectedValueOnce({ code: "BlobNotFound", statusCode: 404 });
+    expect(await downloadAttachment("missing.png")).toBeNull();
+  });
+
+  it.each([new Error("network failure"), { code: "AuthorizationFailure", statusCode: 403 }, { code: "ContainerNotFound", statusCode: 404 }])("propagates infrastructure failure %j", async (error) => {
+    storage.download.mockRejectedValueOnce(error);
+    await expect(downloadAttachment("receipt/photo.png")).rejects.toBe(error);
+  });
+
+  it("propagates failures while reading a partial stream", async () => {
+    const failure = new Error("download interrupted");
+    storage.download.mockResolvedValueOnce({ readableStreamBody: Readable.from((async function* () {
+      yield Buffer.from([1]);
+      throw failure;
+    })()) });
+    await expect(downloadAttachment("receipt/photo.png")).rejects.toBe(failure);
   });
 });
 

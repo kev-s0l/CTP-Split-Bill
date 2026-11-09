@@ -16,6 +16,7 @@ Each week of class goes deep on one layer that's already here under your feet.
 
 ```bash
 pnpm install
+pnpm ocr:setup           # provisions local English OCR data (one-time network download)
 pnpm prisma:generate     # generates the typed client for the receipt-owned schema
 pnpm dev                 # starts web + YOUR OWN Postgres server + Azurite
 ```

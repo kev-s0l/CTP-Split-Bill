@@ -19,6 +19,7 @@ allowBuilds:
   "esbuild": true
   "prisma": true
   "sharp": true
+  tesseract.js: false # Optional fundraising postinstall is unnecessary.
 
 overrides:
   "pglite-prisma-adapter>@prisma/driver-adapter-utils": 6.19.3

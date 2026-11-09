@@ -1,6 +1,5 @@
 ---
 type: feature
-status: draft
 ---
 # The organizer extracts a stored receipt photo into an unreviewed draft
 
@@ -21,7 +20,8 @@ instead of entering every value by hand, then reviews them before splitting.
 
 ## Behavior
 
-- POST accepts JSON containing expectedRevision. Identity comes from the
+- POST accepts JSON containing expectedRevision (an integer from 1 through
+  2147483645, reserving two revision advances). Identity comes from the
   session; missing or unknown users return 401. Invalid JSON or revision
   returns 400. Unknown, foreign, missing and deleted receipts return 404.
 - Finalized receipts and stale revisions return 409. An active PARSING receipt
@@ -31,7 +31,7 @@ instead of entering every value by hand, then reviews them before splitting.
   records PARSING and clears the previous parser error. This commits before
   image download and OCR; no database transaction spans those operations.
 - The endpoint downloads only that receipt's stored image and runs local
-  English OCR. The proposed adapter uses Tesseract.js with locally provisioned
+  English OCR. The adapter uses Tesseract.js with locally provisioned
   language data. Images are not sent to an external OCR service.
 - OCR execution has a 60-second budget; its worker is terminated on success,
   error or timeout. Setup documents any language-data provisioning separately
@@ -77,16 +77,21 @@ instead of entering every value by hand, then reviews them before splitting.
 - Route tests cover authentication, ownership, deletion, revision/state guards,
   actual persisted extracted values, assignment cleanup, rollback, failure
   preservation, timeout cleanup, abandoned-attempt recovery and competing writes.
-- The OCR runbook provisions local English data and parses a checked-in real
-  receipt fixture, then compares stored items and totals and confirms that
+- The OCR runbook provisions local English data and parses the checked-in synthetic
+  receipt-image fixture, then compares stored items and totals and confirms that
   review remains required. Mock-only OCR tests do not replace this drill.
 - pnpm test, pnpm typecheck and pnpm build pass.
 
 ## Constraints & decisions
 
-- Proposed new dependency: tesseract.js in the services package, providing
-  local OCR without a cloud account. Version and language-data packaging are
-  pinned during implementation; provisioning must work in the local workflow.
+- tesseract.js 7.0.0 provides local OCR without a cloud account.
+  pnpm ocr:setup provisions English tessdata_fast 4.1.0 with a pinned SHA-256.
+  Its Apache-2.0 source is https://github.com/tesseract-ocr/tessdata_fast.
+  The model lives in ignored .ocr/ or absolute RECEIPT_OCR_DATA_DIR.
+- A child process bounds OCR initialization and recognition together. Its worker
+  is terminated on normal completion; timeout/error kills the entire process.
+  The deployment includes the workspace manifest, OCR runner and runtime
+  dependencies. Language data is provisioned before requests are served.
 - Parsing is synchronous for this endpoint. It does not enqueue work into the
   current worker, which has no receipt handler or retry contract.
 - Two short transactions protect the attempt around external work. Revision

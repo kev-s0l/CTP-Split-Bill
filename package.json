@@ -17,6 +17,7 @@
     "db:seed": "tsx packages/db/src/seed.ts",
     "db:dev": "pnpm --filter @project/db-server dev",
     "prisma:generate": "pnpm --filter @project/db generate",
+    "ocr:setup": "node scripts/setup-receipt-ocr.mjs",
     "dev:web": "pnpm --filter @project/web dev",
     "azurite": "azurite --silent --skipApiVersionCheck --location .azurite",
     "worker": "pnpm --filter @project/worker dev",

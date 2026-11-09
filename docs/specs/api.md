@@ -21,6 +21,8 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 - Updates to existing drafts require expectedRevision. Creation starts at revision
   1. The receipt lock checks owner, DRAFT,
   non-PARSING state and revision, then advances revision transactionally.
+  Parsing additionally supports guarded recovery of an abandoned attempt after
+  five minutes, as described in receipts/parse.md.
 - Errors use { error: { code, message } }. Invalid JSON/input is 400; unknown
   user 401; absent/foreign 404; stale/state conflicts 409; unexpected failures
   generic 500. Receipt image storage failures return 503 with code INTERNAL and
@@ -36,6 +38,8 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | GET | /api/receipts | Owned, non-deleted receipt history, newest first | receipts/detail.md |
 | POST | /api/receipts | One multipart file; 201 owned draft and Location; JPEG/PNG/WebP up to 5 MiB | receipts/upload.md |
 | GET | /api/receipts/[id] | Owned receipt, revision, parsing/review state, participants, ordered items and allocations | receipts/detail.md |
+| GET | /api/receipts/[id]/image | Private original photo bytes after owner authorization | receipts/image.md |
+| POST | /api/receipts/[id]/parse | ParseReceipt; local OCR into unreviewed draft items and fields | receipts/parse.md |
 | PATCH | /api/receipts/[id] | UpdateReceipt; corrections, split mode or review confirmation; receipt detail | receipts/edit.md |
 | PUT | /api/receipts/[id]/items | ReplaceItems with expectedRevision; full replacement clears assignments/sharing/review | receipts/items.md |
 | PUT | /api/receipts/[id]/participants | ReplaceParticipants with expectedRevision and participants: [{id?, displayName?, phone?}]; receipt detail | receipts/participants.md |
@@ -50,20 +54,13 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 The bracket names match their route directories. Receipt handlers read params.id;
 the individual bill handler reads params.billsId. Missing IDs never widen a query.
 
-## Planned scaffolds
+## Planned operations
 
-These receipt files carry responsibility comments and export no HTTP handlers yet:
-GET /api/receipts/[id]/image (draft: receipts/image.md);
-POST /api/receipts/[id]/parse (draft: receipts/parse.md).
-Scaffold existence is not implemented functionality.
-
-Collection GET is wired to the owner-scoped history query. Upload creates an
-unparsed draft; OCR remains feature work. Participant replacement is implemented;
-its feature document still carries draft status.
+Upload creates an unparsed draft; parsing is an explicit separate request.
+Image download, parsing and participant replacement are implemented.
 Party APIs, guest authentication and public share links are outside this API.
 
-Draft, pending review: image retrieval (receipts/image.md), receipt parsing
-(receipts/parse.md), totals on GET /api/receipts/[id]
+Draft, pending review: totals on GET /api/receipts/[id]
 (receipts/totals-check.md); and, if ADR-0015 is accepted, owner-scoped
 POST/DELETE /api/receipts/[id]/participants/[participantId]/pick-link plus the
 token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
@@ -83,6 +80,9 @@ token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
 - apps/web/tests/receipts-upload-route.test.ts checks multipart input, image
   signatures/size, authentication, ownership/defaults, storage failures and
   cleanup. The opt-in Azurite drill is in receipts/upload.md.
+- Image and parse route tests cover ownership, photo bytes/headers, extraction,
+  transactional replacement, failure preservation and superseded attempts.
+  The opt-in real OCR drill is in ../runbooks/receipt-ocr.md.
 - pnpm typecheck and pnpm build pass.
 - The seed drill in packages/domain/tests/receipts.test.ts reads, confirms and
   finalizes an owned receipt, checks total 38.66, and rejects other-user.
