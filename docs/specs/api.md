@@ -38,6 +38,7 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | GET | /api/receipts/[id] | Owned receipt, revision, parsing/review state, participants, ordered items and allocations | receipts/detail.md |
 | PATCH | /api/receipts/[id] | UpdateReceipt; corrections, split mode or review confirmation; receipt detail | receipts/edit.md |
 | PUT | /api/receipts/[id]/items | ReplaceItems with expectedRevision; full replacement clears assignments/sharing/review | receipts/items.md |
+| PUT | /api/receipts/[id]/participants | ReplaceParticipants with expectedRevision and participants: [{id?, displayName?, phone?}]; receipt detail | receipts/participants.md |
 | PUT | /api/receipts/[id]/assignments | ReplaceAssignments with expectedRevision and assignments: [{itemId, participantId}]; receipt detail | bills/allocations.md |
 | PUT | /api/receipts/[id]/shared-allocations | ReplaceSharedAllocations with expectedRevision and allocations: [{itemId, participantIds}]; receipt detail | bills/allocations.md |
 | POST | /api/receipts/[id]/preview | ExpectedRevision; read-only participant allocations for the stored draft revision | bills/preview.md |
@@ -60,8 +61,7 @@ Collection GET is wired to the owner-scoped history query. Upload creates an
 unparsed draft; OCR and contact editing remain feature work.
 Party APIs, guest authentication and public share links are outside this API.
 
-Draft, pending review: PUT /api/receipts/[id]/participants
-(receipts/participants.md); totals on GET /api/receipts/[id]
+Draft, pending review: totals on GET /api/receipts/[id]
 (receipts/totals-check.md); and, if ADR-0015 is accepted, owner-scoped
 POST/DELETE /api/receipts/[id]/participants/[participantId]/pick-link plus the
 token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
