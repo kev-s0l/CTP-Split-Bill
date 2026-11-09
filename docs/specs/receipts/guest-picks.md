@@ -63,6 +63,9 @@ so the organizer only reviews and fixes the gaps before finalizing.
 - The pick page sends `Referrer-Policy: no-referrer`, and request logging
   records token routes without the token, so a link does not leak through
   referrers or logs.
+- The pick page is phone-first and meets the mobile standard in web.md: each
+  item is a full-width row that toggles when tapped anywhere on it, and the
+  done action stays reachable without horizontal scrolling.
 - Invalid input 400. Failures roll back all changes.
 
 ## Examples
@@ -88,6 +91,9 @@ so the organizer only reviews and fixes the gaps before finalizing.
 - pnpm typecheck and pnpm build pass.
 - Drill: issue a link, open /p/<token> in a private window, pick items, then
   confirm the owner's receipt detail shows them and the participant is ready.
+- Phone drill: open /p/<token> at 375px wide (devtools or a real phone); pick
+  and unpick items by tapping their rows and press done, with no zooming and
+  no horizontal scroll.
 
 ## Constraints & decisions
 
