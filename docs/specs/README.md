@@ -38,14 +38,13 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 | [assignments](bills/allocations.md) | One-person item assignments and separate equal shared allocations |
 | [finalization](bills/split-allocation.md) | Exact-cent server calculation and immutable bill snapshots |
 | [bill reads](bills/list.md) | Owner-only bill breakdowns and outstanding amounts |
-| [public sharing](bills/public-share.md) | Deferred public portals; current access remains organizer-only |
 
 ## Draft features (under review, not implemented)
 
 | Spec | Behavior |
 |---|---|
-| [participants](receipts/participants.md) | Roster with default Guest N names and optional E.164 phones |
-| [guest picks](receipts/guest-picks.md) | Per-participant pick links, guest item picks and done status (needs ADR-0015) |
+| [participants](receipts/participants.md) | Roster with default Guest N names, optional E.164 phones and optional emails |
+| [guest picks](receipts/guest-picks.md) | Per-participant guest links: item picks and done status before finalize, everyone's amounts after (ADR-0015) |
 | [totals check](receipts/totals-check.md) | Detail reports item/amount differences; mismatches still cannot finalize |
 
 Party specifications and APIs are retired. Historical SQL remains append-only.
