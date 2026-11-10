@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by [ADR-0015](0015-guest-pick-links.md)
 
 ## Context
 

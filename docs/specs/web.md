@@ -53,6 +53,10 @@ Every route handler and Server Action, in order:
   / 409 conflict. Prisma mapped: P2002→409, P2025→404.
 - **Foreign resources return 404, not 403** — existence is not confirmed to
   non-owners.
+- One exception to step 1: guest link routes (`/api/picks/[token]`) derive no
+  user identity; the token hash is the scope. See
+  [ADR-0015](../adr/0015-guest-pick-links.md) and
+  [guest picks](receipts/guest-picks.md).
 - Raw errors and stack traces never reach a client.
 
 ## Verify
@@ -67,3 +71,4 @@ Every route handler and Server Action, in order:
 
 - [ADR-0003](../adr/0003-dev-identity-stub.md) — identity stub + production guard.
 - [ADR-0009](../adr/0009-domain-web-only.md) — schemas/queries live in `packages/domain`.
+- [ADR-0015](../adr/0015-guest-pick-links.md) — guest links, the one token-scoped exception.

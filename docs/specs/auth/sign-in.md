@@ -58,4 +58,4 @@ Organizers need a private, persistent identity so receipt and bill data stays av
 ## Out of scope
 - Additional OAuth providers, password sign-in, passkeys, roles, and administrative accounts; the provider limit is defined by [auth.md](../auth.md).
 - Account deletion, account export, and profile editing; these are future identity features covered by the privacy work noted in [auth.md](../auth.md).
-- Guest or participant authentication and public bill sharing; see [public-share.md](../bills/public-share.md).
+- Guest or participant authentication; guests use per-participant links instead, see [guest-picks.md](../receipts/guest-picks.md).
