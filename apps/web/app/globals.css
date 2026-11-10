@@ -12,8 +12,8 @@
   --color-line: #e4e4e0;
   --color-ink: #1c1c1a;
   --color-ink-muted: #6b6b66;
-  --color-accent: #0f766e;
-  --color-accent-ink: #ffffff;
+  --color-brand: #0f766e;
+  --color-brand-ink: #ffffff;
   --color-danger: #b42318;
 
   --radius-card: 0.75rem;
@@ -28,8 +28,60 @@
     --color-line: #33332f;
     --color-ink: #ededea;
     --color-ink-muted: #a3a39d;
-    --color-accent: #2dd4bf;
-    --color-accent-ink: #042f2e;
+    --color-brand: #2dd4bf;
+    --color-brand-ink: #042f2e;
     --color-danger: #f97066;
   }
+}
+
+/* shadcn aliases — our tokens stay the source of truth (ADR-0016). */
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-brand);
+  --primary-foreground: var(--color-brand-ink);
+  --secondary: var(--color-canvas);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-canvas);
+  --muted-foreground: var(--color-ink-muted);
+  --accent: var(--color-canvas);
+  --accent-foreground: var(--color-ink);
+  --destructive: var(--color-danger);
+  --border: var(--color-line);
+  --input: var(--color-line);
+  --ring: var(--color-brand);
+  --radius: var(--radius-card);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
 }

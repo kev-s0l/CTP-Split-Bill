@@ -3,13 +3,13 @@
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Card, CardBody, CardFooter, CardHeader } from "../app/components/Card";
+import { Card, CardContent, CardFooter, CardHeader } from "../app/components/ui/card";
 import { BillCard } from "../app/components/BillCard";
 
 describe("Card", () => {
   it("renders its slots' children in the order given", () => {
     const html = renderToStaticMarkup(
-      h(Card, null, h(CardHeader, null, "head"), h(CardBody, null, "body"), h(CardFooter, null, "foot")),
+      h(Card, null, h(CardHeader, null, "head"), h(CardContent, null, "body"), h(CardFooter, null, "foot")),
     );
     expect(html.indexOf("head")).toBeGreaterThan(-1);
     expect(html.indexOf("head")).toBeLessThan(html.indexOf("body"));
@@ -17,9 +17,9 @@ describe("Card", () => {
   });
 
   it("styles only through the design tokens", () => {
-    const html = renderToStaticMarkup(h(Card, null, h(CardBody, null, "x")));
-    expect(html).toContain("bg-surface");
-    expect(html).toContain("rounded-card");
+    const html = renderToStaticMarkup(h(Card, null, h(CardContent, null, "x")));
+    expect(html).toContain("bg-card");
+    expect(html).toContain("text-card-foreground");
     expect(html).not.toMatch(/class=""/);
   });
 });

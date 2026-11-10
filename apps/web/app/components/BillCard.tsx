@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardBody, CardFooter } from "./Card";
+import { Card, CardHeader, CardContent, CardFooter, CardTitle } from "./ui/card";
 
 type BillCardProps = {
     restaurant: string;
@@ -12,10 +12,10 @@ export function BillCard({ restaurant, paidTo, partyCount, total, date }: BillCa
     return(
         <Card>
             <CardHeader>
-                <span className="text-base font-semibold">{restaurant}</span>
+                <CardTitle>{restaurant}</CardTitle>
             </CardHeader>
 
-            <CardBody>
+            <CardContent>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
                     <dt className="text-ink-muted">Paid to</dt>
                     <dd>{paidTo}</dd>
@@ -24,9 +24,9 @@ export function BillCard({ restaurant, paidTo, partyCount, total, date }: BillCa
                     <dt className="text-ink-muted">You owe</dt>
                     <dd className="text-lg font-semibold tabular-nums">{total}</dd>
                 </dl>
-            </CardBody>
+            </CardContent>
 
-            <CardFooter>
+            <CardFooter className="border-t text-sm text-ink-muted">
                 <span>Date Created: {date}</span>
             </CardFooter>
         </Card>

@@ -5,7 +5,7 @@ export default function Home() {
     <div className="space-y-8">
       <header>
         <h1 className="text-2xl font-bold">Starter Skeleton</h1>
-        <p className="text-sm text-neutral-500">A place to organize shared receipt splits.</p>
+        <p className="text-sm text-ink-muted">A place to organize shared receipt splits.</p>
       </header>
 
       <section className="rounded-card border border-line bg-surface p-6">
@@ -15,7 +15,7 @@ export default function Home() {
         </p>
         <a
           href="/api/health"
-          className="text-accent underline underline-offset-2 hover:opacity-80"
+          className="text-brand underline underline-offset-2 hover:opacity-80"
         >
           Check health &rarr;
         </a>
