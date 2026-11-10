@@ -5,9 +5,11 @@
 export { queueClient, enqueue, type JobMessage, encodeJobMessage, decodeJobMessage } from "./queue";
 export {
   uploadAttachment,
+  deleteAttachment,
   downloadAttachment,
   storageAvailable,
   safeBlobName,
   MAX_ATTACHMENT_BYTES,
 } from "./storage";
 export { stagePayload, onStage } from "./notify";
+export { recognizeReceipt } from "./ocr";

@@ -17,6 +17,8 @@ Who the current user is, and how every server entry learns it.
 - First sign-in creates a local user from GitHub's verified primary email,
   display name (or login fallback), and avatar.
 - Sign-out removes the database session so it cannot be reused.
+- GET /api/me returns the current local user's selected profile fields; see
+  [profile](auth/profile.md) for its projection, caching and error contract.
 
 ## Constraints & decisions
 

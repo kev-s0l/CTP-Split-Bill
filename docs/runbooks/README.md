@@ -31,4 +31,4 @@ Start from [`_template.md`](_template.md).
 
 | Runbook | When |
 |---|---|
-| _(none yet — the first arrives with the deploy machinery)_ | |
+| [receipt-ocr](receipt-ocr.md) | Provision or verify local OCR, or diagnose a parse 503 |

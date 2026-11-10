@@ -17,14 +17,18 @@ export class ApiError extends Error {
   constructor(
     public readonly code: ErrorCode,
     message: string,
-    public readonly status: number
+    public readonly status: number,
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-export function apiError(code: ErrorCode, message: string, status: number): Response {
+export function apiError(
+  code: ErrorCode,
+  message: string,
+  status: number,
+): Response {
   return Response.json({ error: { code, message } }, { status });
 }
 
@@ -33,7 +37,11 @@ export function apiError(code: ErrorCode, message: string, status: number): Resp
 export function invalidInput(error: ZodError): Response {
   const issue = error.issues[0];
   const path = issue?.path.join(".");
-  const message = issue ? (path ? `${path}: ${issue.message}` : issue.message) : "Invalid input";
+  const message = issue
+    ? path
+      ? `${path}: ${issue.message}`
+      : issue.message
+    : "Invalid input";
   return apiError("INVALID_INPUT", message, 400);
 }
 
@@ -43,7 +51,8 @@ export function toApiError(e: unknown): Response {
   if (e instanceof ApiError) return apiError(e.code, e.message, e.status);
 
   const prismaCode = (e as { code?: unknown } | null)?.code;
-  if (prismaCode === "P2002") return apiError("CONFLICT", "That already exists", 409);
+  if (prismaCode === "P2002")
+    return apiError("CONFLICT", "That already exists", 409);
   if (prismaCode === "P2025") return apiError("NOT_FOUND", "Not found", 404);
 
   log.error({ err: e }, "unhandled error in route handler");

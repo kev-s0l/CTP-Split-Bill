@@ -26,11 +26,19 @@ All exports come from `src/index.ts`:
 
 | Export | What it does |
 |---|---|
-| `uploadAttachment(entityId, filename, contentType, data)` | Uploads a blob; returns the blob name |
-| `downloadAttachment(blobName)` | Downloads a blob; returns `{ data, contentType }` or `null` |
-| `storageAvailable()` | Checks whether blob storage is reachable |
+| `uploadAttachment(entityId, filename, contentType, data)` | Initializes the container if needed, uploads a blob and returns its name |
+| `deleteAttachment(blobName)` | Deletes a blob if it exists; storage failures propagate to the caller |
+| `downloadAttachment(blobName)` | Downloads a blob; returns `{ data, contentType }` or `null` for BlobNotFound; other errors propagate |
+| `storageAvailable()` | Initializes the container if needed and probes its metadata; returns false on failure |
 | `safeBlobName(entityId, filename)` | Creates a safe, namespaced blob name from a user-supplied filename |
 | `MAX_ATTACHMENT_BYTES` | 5 MB — the attachment size cap |
+
+### Local receipt OCR (`src/ocr.ts`)
+
+`recognizeReceipt(data)` returns English text using Tesseract.js 7.0.0 in a
+bounded child process. Run `pnpm ocr:setup` before using it. No requests download
+models or send images to an external provider. See
+[the OCR runbook](../../docs/runbooks/receipt-ocr.md) for setup and deployment.
 
 ### Notify (`src/notify.ts`)
 

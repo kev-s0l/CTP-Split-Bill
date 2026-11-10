@@ -10,7 +10,9 @@ export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5 MB
 export async function storageAvailable(): Promise<boolean> {
   try {
     const client = BlobServiceClient.fromConnectionString(CONNECTION_STRING);
-    await client.getContainerClient(CONTAINER).getProperties();
+    const container = client.getContainerClient(CONTAINER);
+    await container.createIfNotExists();
+    await container.getProperties();
     return true;
   } catch {
     return false;
@@ -36,10 +38,18 @@ export async function uploadAttachment(
 ): Promise<string> {
   const blobName = safeBlobName(itemId, filename);
   const client = BlobServiceClient.fromConnectionString(CONNECTION_STRING);
-  const blockBlob = client.getContainerClient(CONTAINER).getBlockBlobClient(blobName);
+  const container = client.getContainerClient(CONTAINER);
+  await container.createIfNotExists();
+  const blockBlob = container.getBlockBlobClient(blobName);
   await blockBlob.uploadData(data, { blobHTTPHeaders: { blobContentType: contentType } });
   log.info({ blobName, bytes: data.byteLength }, "uploaded blob");
   return blobName;
+}
+
+export async function deleteAttachment(blobName: string): Promise<void> {
+  const client = BlobServiceClient.fromConnectionString(CONNECTION_STRING);
+  const blockBlob = client.getContainerClient(CONTAINER).getBlockBlobClient(blobName);
+  await blockBlob.deleteIfExists();
 }
 
 export async function downloadAttachment(
@@ -51,8 +61,9 @@ export async function downloadAttachment(
     const res = await blockBlob.download(0);
     const data = new Uint8Array(await streamToBuffer(res.readableStreamBody!));
     return { data, contentType: res.contentType ?? "application/octet-stream" };
-  } catch {
-    return null;
+  } catch (error) {
+    if ((error as { code?: unknown } | null)?.code === "BlobNotFound") return null;
+    throw error;
   }
 }
 

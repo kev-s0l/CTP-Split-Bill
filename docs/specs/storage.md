@@ -21,11 +21,17 @@ to `UseDevelopmentStorage=true`, which connects to Azurite at `127.0.0.1:10000`
 
 ### Blob adapter (`packages/services/src/storage.ts`)
 - Container: `attachments`.
-- `uploadAttachment(entityId, filename, contentType, data)` → blob name.
+- `uploadAttachment(entityId, filename, contentType, data)` initializes the
+  container if needed, uploads bytes and returns the blob name.
+- `deleteAttachment(blobName)` deletes an existing blob, succeeds if it is
+  already absent, and propagates storage failures to the caller.
+- Missing blobs alone return null on download; transport, permission and
+  missing-container errors propagate. Receipt routes map outages to 503.
 - `downloadAttachment(blobName)` → `{ data, contentType }` or null.
 - `safeBlobName(entityId, filename)` sanitizes the user filename and namespaces
   it under the entity ID: `<entityId>/<sanitized-name>`.
-- `storageAvailable()` probes container metadata; returns `false` if Azurite is down.
+- `storageAvailable()` initializes the container if needed and probes its
+  metadata; returns `false` if initialization or the probe fails.
 
 ### Queue adapter (`packages/services/src/queue.ts`)
 - Queue name: `jobs`.
@@ -48,6 +54,8 @@ to `UseDevelopmentStorage=true`, which connects to Azurite at `127.0.0.1:10000`
 
 - Blob storage does NOT delete old files when a new attachment replaces an
   existing one — the DB entry is updated but the old blob lingers.
+- Receipt creation explicitly attempts cleanup if its database write fails
+  after an upload. Cleanup is best effort and never runs after creation succeeds.
 - The queue does NOT guarantee delivery order (Azure Storage Queue is
   at-least-once, not FIFO).
 - This package does NOT generate thumbnails — that's the worker's job.
@@ -78,6 +86,9 @@ to `UseDevelopmentStorage=true`, which connects to Azurite at `127.0.0.1:10000`
   validates the full round-trip.
 - Unit tests for individual functions (`safeBlobName`, `storageAvailable`) do
   not need Azurite.
+- Storage tests mock the SDK to check initialization, upload and deletion failure
+  behavior. The receipt upload spec names an opt-in round-trip drill against a
+  fresh isolated Azurite instance.
 
 ## Key decisions
 

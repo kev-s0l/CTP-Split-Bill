@@ -1,5 +1,4 @@
-// PUT /api/receipts/:id/participants - Save the draft roster's names and phone numbers, preserving retained participant IDs.
-
+// Planned PUT /api/receipts/:id/participants - Save the draft roster's names and phone numbers, preserving retained participant IDs.
 import { currentUserId } from "@project/auth";
 import { revalidatePath } from "next/cache";
 import { apiError, invalidInput, ReplaceParticipants, replaceReceiptParticipants, toApiError } from "@project/domain";
