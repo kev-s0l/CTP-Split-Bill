@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — supersedes [ADR-0013](0013-presentational-components.md)
+Accepted; supersedes [ADR-0013](0013-presentational-components.md)
 
 ## Context
 

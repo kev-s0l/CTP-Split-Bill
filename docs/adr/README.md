@@ -20,7 +20,7 @@ that supersedes the old one.
 | 0010 | [Reviewer-agent lifecycle and authority](0010-reviewer-agent-lifecycle.md) | Accepted |
 | 0011 | [Ideation pipeline + @research subagent](0011-ideation-pipeline.md) | Accepted |
 | 0012 | [Public share link as the one unscoped read](0012-public-share-link.md) | Superseded by 0015 |
-| 0013 | [Presentational components](0013-presentational-components.md) | Proposed |
+| 0013 | [Presentational components](0013-presentational-components.md) | Superseded by 0016 |
 | 0014 | [Receipt-owned domain](0014-receipt-owned-domain.md) | Accepted |
 | 0015 | [Per-participant guest links: pick, then read the split](0015-guest-pick-links.md) | Accepted |
-| 0016 | [shadcn/ui as the interactive primitive layer](0016-shadcn-ui-primitives.md) | Proposed — supersedes 0013 |
+| 0016 | [shadcn/ui as the interactive primitive layer](0016-shadcn-ui-primitives.md) | Accepted |

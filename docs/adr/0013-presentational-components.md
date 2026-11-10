@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by [ADR-0016](0016-shadcn-ui-primitives.md)
 
 ## Context
 
