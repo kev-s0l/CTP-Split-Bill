@@ -28,6 +28,9 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
   generic 500. Receipt image storage failures return 503 with code INTERNAL and
   a retry message. Prisma P2002 maps to 409 and P2025 to 404.
 - Health is the documented public exception and retains its probe response.
+- Guest links are the one token-scoped exception (ADR-0015): /api/picks/[token]
+  routes derive no user identity; the token hash is the scope
+  (receipts/guest-picks.md).
 
 ## Implemented operations
 
@@ -58,10 +61,11 @@ the individual bill handler reads params.billsId. Missing IDs never widen a quer
 
 Upload creates an unparsed draft; parsing is an explicit separate request.
 Image download, parsing and participant replacement are implemented.
-Party APIs, guest authentication and public share links are outside this API.
+Party APIs, guest authentication and public share links are outside this API; guests reach a
+receipt only through a pick link.
 
 Draft, pending review: totals on GET /api/receipts/[id]
-(receipts/totals-check.md); and, if ADR-0015 is accepted, owner-scoped
+(receipts/totals-check.md); and, per ADR-0015, owner-scoped
 POST/DELETE /api/receipts/[id]/participants/[participantId]/pick-link plus the
 token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
 (receipts/guest-picks.md). None of these exist yet.

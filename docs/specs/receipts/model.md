@@ -24,8 +24,8 @@ each person owes without administering a reusable party or guest accounts.
   are optional display metadata. Owner identity comes from the auth seam.
 - Only the owner accesses a receipt or its children. Foreign, unknown and
   soft-deleted receipts return 404. Missing users return 401.
-- Participants belong to one receipt, have required display names and optional
-  non-unique phones, and carry no user/account relation.
+- Participants belong to one receipt, have required display names, optional
+  non-unique phones and emails, and carry no user/account relation.
 - Items store nullable OCR fields until correction. Decimal precisions are
   unchanged. Corrected replacement requires complete valid fields and clears
   individual assignments and shared allocations in one transaction.
