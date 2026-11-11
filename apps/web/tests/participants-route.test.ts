@@ -66,7 +66,7 @@ describe("receipt participant reads and payer edits", () => {
     const response = await get();
     expect(response.status).toBe(200);
     expect((await response.json()).participants).toEqual(receipt.participants.map(({ id, displayName, phone, joinedAt }) => ({
-      id, displayName, phone, joinedAt: joinedAt.toISOString(),
+      id, displayName, phone, email: null, joinedAt: joinedAt.toISOString(), hasPickLink: false, picksSubmittedAt: null,
     })));
     expect(await stored()).toEqual(before);
     expect(cache.revalidatePath).not.toHaveBeenCalled();

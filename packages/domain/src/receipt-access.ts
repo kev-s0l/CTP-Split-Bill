@@ -60,3 +60,21 @@ export async function lockEditableReceipt(
     );
   }
 }
+
+// Guest pick writes (ADR-0015): the same DRAFT/not-PARSING guard, row lock and
+// revision advance as lockEditableReceipt, but the pick token is the scope, so
+// there is no owner, and guests write only their own rows, so no expected revision.
+// A receipt that vanished or started parsing is the same 404 as a bad token.
+export async function lockReceiptForGuest(db: ReceiptDb, receiptId: string) {
+  const live = { id: receiptId, deletedAt: null, parseStatus: { not: "PARSING" as const } };
+  const locked = await db.receipt.updateMany({
+    where: { ...live, status: "DRAFT" },
+    data: { revision: { increment: 1 } },
+  });
+  if (locked.count === 0) {
+    const receipt = await db.receipt.findFirst({ where: live, select: { status: true } });
+    if (receipt?.status === "FINALIZED")
+      throw new ApiError("CONFLICT", "Receipt is finalized", 409);
+    throw new ApiError("NOT_FOUND", "Link not found", 404);
+  }
+}

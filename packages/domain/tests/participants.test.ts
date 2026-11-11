@@ -39,11 +39,11 @@ describe("receipt participants", () => {
     const detail = await getReceipt(ownerId, receipt.id);
 
     expect(detail.participants).toEqual(receipt.participants.map(({ id, displayName, phone, joinedAt }) => ({
-      id, displayName, phone, joinedAt,
+      id, displayName, phone, email: null, joinedAt, hasPickLink: false, picksSubmittedAt: null,
     })));
     expect(new Set(detail.participants.map((participant) => participant.id)).size).toBe(2);
     expect(detail.participants.map((participant) => Object.keys(participant).sort())).toEqual([
-      ["displayName", "id", "joinedAt", "phone"], ["displayName", "id", "joinedAt", "phone"],
+      ["displayName", "email", "hasPickLink", "id", "joinedAt", "phone", "picksSubmittedAt"], ["displayName", "email", "hasPickLink", "id", "joinedAt", "phone", "picksSubmittedAt"],
     ]);
   });
 
@@ -63,7 +63,8 @@ describe("receipt participants", () => {
     const guest = await prisma.participant.create({ data: { receiptId: receipt.id, displayName: "Guest" } });
 
     expect((await getReceipt(ownerId, receipt.id)).participants).toContainEqual({
-      id: guest.id, displayName: "Guest", phone: null, joinedAt: guest.joinedAt,
+      id: guest.id, displayName: "Guest", phone: null, email: null, joinedAt: guest.joinedAt,
+      hasPickLink: false, picksSubmittedAt: null,
     });
   });
 
