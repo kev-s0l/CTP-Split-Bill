@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed; builds on [ADR-0015](0015-guest-pick-links.md) and amends one
+Accepted; builds on [ADR-0015](0015-guest-pick-links.md) and amends one
 rule of it: guest writes also require picking to be open (see "Picking and
 editing"). The rest of ADR-0015 stands.
 
