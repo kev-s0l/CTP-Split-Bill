@@ -1,4 +1,4 @@
-import { fork } from "node:child_process";
+import { fork, type ForkOptions } from "node:child_process";
 import { existsSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
@@ -16,6 +16,13 @@ function workspaceRoot() {
   return directory;
 }
 
+// Turbopack (next dev) treats a fork() argument it can partly evaluate as a
+// module reference and fails the route when the guess misses. Taking the path
+// as a parameter leaves only a runtime value for it to see.
+function forkWorker(file: string, options: ForkOptions) {
+  return fork(file, [], options);
+}
+
 export async function recognizeReceipt(data: Uint8Array): Promise<string> {
   if (!data.byteLength || data.byteLength > MAX_ATTACHMENT_BYTES) throw new Error("OCR image size is invalid");
   const root = workspaceRoot();
@@ -27,7 +34,7 @@ export async function recognizeReceipt(data: Uint8Array): Promise<string> {
   // Isolate Tesseract initialization as well as recognition. Killing this
   // process also ends its worker threads if createWorker never resolves.
   return new Promise((resolveText, reject) => {
-    const child = fork(join(root, "packages/services/src/ocr-worker.cjs"), [], {
+    const child = forkWorker(join(root, "packages/services/src/ocr-worker.cjs"), {
       execArgv: [], stdio: ["ignore", "ignore", "ignore", "ipc"],
       serialization: "advanced",
     });

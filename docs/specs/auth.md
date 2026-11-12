@@ -9,9 +9,9 @@ Who the current user is, and how every server entry learns it.
 
 - Auth.js v5 uses the Prisma adapter, database sessions, and GitHub OAuth as its
   only provider.
-- Public surface: landing, `/api/health`, and `/api/auth/*`. Other pages require
-  a session; signed-out API calls receive 401 and signed-out pages redirect to
-  Auth.js's sign-in endpoint.
+- Public surface: landing, `/login`, `/api/health`, and `/api/auth/*`. Other
+  pages require a session; signed-out API calls receive 401 and signed-out pages
+  redirect to `/login`. Signed-in visitors to `/login` are redirected away.
 - Identity comes only from the Auth.js session's local database user ID. No
   request header, URL parameter, or development fallback supplies identity.
 - First sign-in creates a local user from GitHub's verified primary email,
