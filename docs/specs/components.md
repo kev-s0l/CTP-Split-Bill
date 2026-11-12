@@ -233,12 +233,14 @@ screen decides when each one shows; these decide what it looks like.
 | Component | Props | Renders |
 |---|---|---|
 | `LoadingState` | `label`, `rows` (default 3) | a `role="status"` region announcing `label` to screen readers, with `rows` `Skeleton` bars; the Suspense fallback for a section |
-| `EmptyState` | `title`, `message`, `actionLabel`, `actionHref` | the title and message, and one primary action as a link drawn as a `Button`. There is no variant without an action |
+| `EmptyState` | `title`, `message`, `actionLabel`, and exactly one of `actionHref` or `onAction` | the title and message, and one primary action drawn as a `Button`: a link to `actionHref`, or a button that calls `onAction`. There is no variant without an action |
 | `ErrorState` | `title`, `message`, `onRetry` | a destructive `Alert` with the title, message and a "Try again" button that calls `onRetry` |
 
-`ErrorState` takes a handler, so its callers are client components (error
-boundaries, client leaves). It carries no `"use client"` of its own: it
-joins the client bundle through its caller.
+`ErrorState`, and `EmptyState` given `onAction`, take a handler, so their
+callers are client components (error boundaries, client leaves). Neither
+carries a `"use client"` of its own: each joins the client bundle through
+its caller. `EmptyState` with `actionHref` stays usable from a server
+component.
 
 ### `BillCard`
 
@@ -303,7 +305,8 @@ its line from this section.
   - `LoadingState`: a `role="status"` region with the label and exactly
     `rows` skeleton bars.
   - `EmptyState`: the title, message, and an action link with the given
-    label and href.
+    label and href, or, given `onAction`, a button with that label and no
+    link.
   - `ErrorState`: a `role="alert"` region with the title, message and a
     "Try again" button.
   - `UserMenu`: a trigger showing the name, marked as opening a menu.

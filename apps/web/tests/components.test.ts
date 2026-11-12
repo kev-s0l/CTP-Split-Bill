@@ -72,6 +72,20 @@ describe("EmptyState", () => {
     expect(html).toContain("No bills yet");
     expect(html).toContain("Scan a receipt to split it.");
     expect(html).toMatch(/<a[^>]*href="\/receipts\/new"[^>]*>Scan a receipt<\/a>/);
+    expect(html).not.toContain("<button");
+  });
+
+  it("renders a button instead of a link when given onAction", () => {
+    const html = renderToStaticMarkup(
+      h(EmptyState, {
+        title: "No one's on this receipt yet",
+        message: "Add the people splitting it.",
+        actionLabel: "Add person",
+        onAction: () => {},
+      }),
+    );
+    expect(html).toMatch(/<button[^>]*type="button"[^>]*>Add person<\/button>/);
+    expect(html).not.toContain("<a");
   });
 });
 
