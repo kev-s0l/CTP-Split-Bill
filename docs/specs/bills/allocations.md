@@ -35,7 +35,8 @@ equal appetizers and other shared charges without arbitrary weights.
 - Receipt information review is retained because item contents do not change;
   revision advances so existing previews become stale.
 - Invalid input returns 400; unknown user 401; foreign/deleted receipt 404;
-  finalized/parsing/stale state 409. Failures roll back all changes.
+  finalized/parsing/stale state 409, and any write while picking is open
+  (receipts/guest-picks.md). Failures roll back all changes.
 - Success returns receipt detail and revalidates its path.
 
 ## Examples

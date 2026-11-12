@@ -36,7 +36,12 @@ the draft before assigning costs and finalizing bills.
   "Image storage is unavailable; try again later". SDK details stay server-side.
 - Only after upload succeeds does the domain create the receipt, with ownerId
   from the session and the returned imageBlobName and validated content type.
-  The initial state is DRAFT, NOT_STARTED, EVEN, revision 1 and currency USD.
+  The initial state is DRAFT, NOT_STARTED, EVEN, revision 1, currency USD
+  and picking paused (receipts/guest-picks.md).
+- The same transaction creates the organizer's participant row and records
+  it as organizerParticipantId (ADR-0018). Its displayName is the user's name,
+  trimmed and cut to 50 characters, or "You" when the name is blank. It has
+  no phone, email or pick link, and is not made the payer.
   Metadata and amounts are null, participants and items are empty, and there
   are no bills. Creation does not require expectedRevision.
 - Success returns 201 with the existing receipt detail projection and Location:
@@ -91,5 +96,6 @@ the draft before assigning costs and finalizing bills.
 ## Out of scope
 
 - OCR and queue jobs, image download, thumbnails, replacing an existing photo,
-  participant creation, bill generation, image decoding and retry deduplication.
+  guest participant creation, bill generation, image decoding and retry
+  deduplication.
 - Existing-receipt corrections remain in edit.md and items.md.

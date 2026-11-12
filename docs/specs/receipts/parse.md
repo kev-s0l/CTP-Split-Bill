@@ -24,7 +24,8 @@ instead of entering every value by hand, then reviews them before splitting.
   2147483645, reserving two revision advances). Identity comes from the
   session; missing or unknown users return 401. Invalid JSON or revision
   returns 400. Unknown, foreign, missing and deleted receipts return 404.
-- Finalized receipts and stale revisions return 409. An active PARSING receipt
+- Finalized receipts, stale revisions and receipts with picking open
+  (receipts/guest-picks.md) return 409. An active PARSING receipt
   returns 409. A PARSING attempt older than five minutes can be retried with
   its current revision; the previous attempt loses permission to complete.
 - An atomic owner/DRAFT/revision check starts parsing, advances revision,
