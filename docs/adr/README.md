@@ -24,3 +24,5 @@ that supersedes the old one.
 | 0014 | [Receipt-owned domain](0014-receipt-owned-domain.md) | Accepted |
 | 0015 | [Per-participant guest links: pick, then read the split](0015-guest-pick-links.md) | Accepted |
 | 0016 | [shadcn/ui as the interactive primitive layer](0016-shadcn-ui-primitives.md) | Accepted |
+| 0017 | [Group link with claimed names, and an owner switch between picking and editing](0017-group-pick-link.md) | Accepted |
+| 0018 | [The organizer on the roster, polling for picks, and one URL per receipt step](0018-organizer-row-polling-and-receipt-steps.md) | Accepted |
