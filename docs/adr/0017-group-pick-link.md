@@ -1,10 +1,10 @@
-# ADR-0017: One group link per receipt, claimed names, and an owner switch that closes picking
+# ADR-0017: One group link per receipt, claimed names, and an owner switch between picking and editing
 
 ## Status
 
 Proposed; builds on [ADR-0015](0015-guest-pick-links.md) and amends one
-rule of it: guest writes also require picking to be open (see "Closing
-picking"). The rest of ADR-0015 stands.
+rule of it: guest writes also require picking to be open (see "Picking and
+editing"). The rest of ADR-0015 stands.
 
 ## Context
 
@@ -21,7 +21,10 @@ person, and "done" would mean "someone who tapped Maya's name".
 Separately, ADR-0015 lets guests write until finalize. A guest's save
 replaces that guest's whole set of picks, so a guest page left open from
 before an owner's fix can undo the fix with its next save. The owner has no
-way to hold guests off while they correct the split.
+way to hold guests off while they correct the split. It also runs the other
+way: every guest pick advances the receipt revision, so while guests are
+picking, an owner save built from an earlier read gets a 409 and loses its
+draft.
 
 ## Decision
 
@@ -84,28 +87,39 @@ is the existing per-participant flow.
 - The owner's screen marks a claimed participant "Claimed", with Send new
   link and a hint to use it when someone cannot get back in.
 
-### Closing picking
+### Picking and editing
 
-- The owner can close and reopen picking on a DRAFT receipt through
-  owner-scoped routes. Closing stores receipts.picks_closed_at; reopening
-  clears it. Neither changes the receipt revision, since receipt content is
-  unchanged.
-- While picking is closed, guest pick writes and done return 409
-  `CONFLICT` ("Picking is closed") and write nothing. This amends ADR-0015,
-  where guest writes required only DRAFT and not PARSING.
-- Claims through the group link still succeed while picking is closed, so
-  a late guest can see the items, but they cannot pick until it reopens.
-- Every token projection reports whether picking is closed, so the guest
-  page shows a read-only view with a plain reason instead of failing on
-  save.
-- Owner edits are never blocked by this switch. Closing picking does not
-  clear anyone's picks or done state.
-- Finalize already rejects guest writes; a FINALIZED receipt is treated as
-  closed whatever picks_closed_at holds.
-- The switch is manual. Picking is not closed automatically when the owner
-  opens an editing screen, because the server cannot tell when the owner is
-  finished, and a lock left behind by an abandoned tab would shut guests out
-  with no visible cause.
+- A DRAFT receipt is in one of two modes, stored as
+  receipts.picks_opened_at: null is **Editing**, a timestamp is **Picking
+  open**. Every receipt starts in Editing, because the items have to be
+  right before anyone picks.
+- The owner opens and pauses picking through owner-scoped routes, under the
+  receipt row lock. Opening requires the receipt to be reviewed and to have
+  at least one participant. Pausing waits behind any
+  guest write already holding the lock. Neither changes the receipt
+  revision, since receipt content is unchanged.
+- **While picking is open,** guests pick and mark done as in ADR-0015, and
+  the owner's structural writes return 409 `CONFLICT` ("Pause picking to
+  make changes") and write nothing: receipt fields, items, participants,
+  assignments, shared allocations, parse and finalize. Issuing, rotating
+  and revoking links, and the group token routes, still work.
+- **While editing,** guest pick writes and done return 409 `CONFLICT`
+  ("The organizer is making changes") and write nothing. This amends
+  ADR-0015, where guest writes required only DRAFT and not PARSING. The
+  token stays valid, so this is not the 404 for a dead link.
+- So only one side can change picks at a time: guests can't undo a fix
+  while the owner is making it, and the owner never saves over picks that
+  arrived after their read.
+- Claims through the group link succeed in both modes, so a late guest can
+  see the items, but they can't pick until picking is open.
+- Every token projection reports the mode, so the guest page shows a
+  read-only view with a plain reason instead of failing on save.
+- Switching modes does not clear anyone's picks or done state.
+- A FINALIZED receipt rejects guest writes whatever picks_opened_at holds.
+- The switch is manual. The mode doesn't change when the owner opens an
+  editing screen, because the server can't tell when the owner is finished,
+  and a lock left behind by an abandoned tab would shut guests out with no
+  visible cause.
 
 ### Unchanged
 
@@ -149,23 +163,30 @@ is the existing per-participant flow.
   often when the link is opened from a different app, since apps such as
   Instagram and WhatsApp open links in their own browser with separate
   storage. The guest then asks the owner, who sends a new link.
-- Easier: the owner can close picking, fix the split, and finalize without
-  a guest undoing a fix.
+- Easier: the owner pauses picking, fixes the split, and finalizes without
+  a guest undoing a fix, and guest picks never make an owner save stale.
+- Harder: the owner must pause picking to change anything, including
+  finalizing. Screens that edit show a read-only view with a pause button
+  while picking is open.
 - Harder: after picking is reopened, a guest page left open from before an
-  owner's fix can still undo it with its next save, as in ADR-0015. Closing
-  picking until finalize avoids it.
-- Harder: an owner who forgets to reopen picking leaves guests read-only;
-  the guest page says so, so a guest knows to ask.
-- Claims, group-token changes and closing or reopening picking do not change
+  owner's fix can still undo that guest's part of it with its next save, as
+  in ADR-0015. Keeping picking paused until finalize avoids it.
+- Harder: an owner who forgets to open or reopen picking leaves guests
+  read-only; the guest page says so, so a guest knows to ask.
+- Claims, group-token changes and opening or pausing picking do not change
   the receipt revision, so they never make an owner's unsaved edit stale
   (same rule as ADR-0015).
+- Existing receipts get picks_opened_at null, so they start in Editing.
 - On acceptance:
   - docs/specs/receipts/guest-picks.md gains the group token, claim route,
-    `/g/[token]` page, the close and reopen routes, and the closed state in
-    its projections and guest write rules.
+    `/g/[token]` page, the open and pause routes, and the mode in its
+    projections and guest write rules.
+  - docs/specs/receipts/edit.md, items.md, participants.md and
+    bills/allocations.md gain the "pause picking" 409 on owner writes.
   - docs/specs/receipts/participants-screen.md gains a group link section
-    and the close/reopen picking switch, and per-person rows read "Claimed"
-    rather than "Link sent".
+    and the open/pause picking switch, renders the roster read-only while
+    picking is open, and per-person rows read "Claimed" rather than "Link
+    sent".
   - The assign items screen's spec, when written, shows the same switch.
   - `apps/web/middleware.ts` exempts `/g/` as well as `/p/`.
   - docs/specs/web.md's guest-route exception names `/api/groups/[token]`.
