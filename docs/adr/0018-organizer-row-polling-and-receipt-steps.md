@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed; builds on [ADR-0017](0017-group-pick-link.md), whose switch
+Accepted; builds on [ADR-0017](0017-group-pick-link.md), whose switch
 between picking and editing these screens are built around
 
 ## Context
