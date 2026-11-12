@@ -21,8 +21,9 @@ what to pay without an account or a second link.
   organizer picks), the pick transactions and the picking switch.
 - packages/domain/src/receipt-access.ts: lockReceiptForGuest, the guest
   sibling of lockEditableReceipt. Same DRAFT and not-PARSING guard and the
-  same revision increment, but no owner and no expected revision, and it
-  requires picking to be open where lockEditableReceipt requires it closed.
+  same revision increment (optional, for done), but no owner and no expected
+  revision, and it requires picking to be open where lockEditableReceipt
+  requires it closed.
 - packages/domain/src/receipt.ts and receipt-parsing.ts: item replacement and
   parse completion clear every participant's picksSubmittedAt.
 - apps/web/app/api/receipts/[id]/participants/[participantId]/pick-link/route.ts:
@@ -89,8 +90,11 @@ what to pay without an account or a second link.
   its next read; reviewedAt is kept because receipt content is unchanged
   (same rule as bills/allocations.md).
 - POST done sets picksSubmittedAt to now; it is idempotent. It needs picking
-  open, like PUT, and does not change the revision. A later PUT by the
-  same holder clears it until they press done again.
+  open, like PUT, and runs under the same receipt row lock. The press that
+  sets it advances the revision, so the organizer's picks screen sees it on
+  its next read; a repeat press changes nothing. Picking is open, so no owner
+  draft can go stale. A later PUT by the same holder clears it until they
+  press done again.
 - The owner replacing items (receipts/items.md) and a successful parse
   (receipts/parse.md) each clear every participant's picksSubmittedAt, in the
   same transaction, since their picks were cleared with the old items.
@@ -167,6 +171,7 @@ what to pay without an account or a second link.
 | Maya and Sam save picks at the same moment | Both saved, one after the other |
 | Guest saves an item the owner has since removed | 404, guest reloads |
 | Sam presses done, then edits picks | picksSubmittedAt cleared until done again |
+| Sam presses done twice | First press sets picksSubmittedAt and advances the revision; the second changes nothing |
 | Picking paused, Sam PUTs picks | 409 "The organizer is making changes"; GET still works |
 | Picking open, owner PATCHes the tip | 409 "Pause picking to make changes" |
 | Open picking on an unreviewed receipt | 409, still Editing |

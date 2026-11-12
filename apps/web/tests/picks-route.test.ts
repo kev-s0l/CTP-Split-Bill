@@ -363,16 +363,20 @@ describe("PUT /api/picks/:token", () => {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/picks/:token/done", () => {
-  it("marks the holder done once, keeps the first time, and leaves the revision alone", async () => {
+  it("marks the holder done once, keeps the first time, and advances the revision only on the first press", async () => {
     const sam = await tokenFor(d.receipt.id, d.sam.id);
     const first = await submit(sam);
     expect(first.status).toBe(200);
     const at = (await participantRow(d.sam.id)).picksSubmittedAt;
     expect(at).toBeInstanceOf(Date);
-    expect((await first.json()).picksSubmittedAt).toBe(at!.toISOString());
+    const body = await first.json();
+    expect(body.picksSubmittedAt).toBe(at!.toISOString());
+    // The organizer's picks screen polls on revision (ADR-0018).
+    expect((await receiptRow(d.receipt.id)).revision).toBe(2);
+    expect(body.revision).toBe(2);
     expect((await submit(sam)).status).toBe(200);
     expect((await participantRow(d.sam.id)).picksSubmittedAt).toEqual(at);
-    expect((await receiptRow(d.receipt.id)).revision).toBe(1);
+    expect((await receiptRow(d.receipt.id)).revision).toBe(2);
   });
 
   it("a later save clears done until the holder presses it again", async () => {
@@ -391,7 +395,7 @@ describe("POST /api/picks/:token/done", () => {
     expect((await participantRow(d.sam.id)).picksSubmittedAt).not.toBeNull();
     await setMode(d.receipt.id, false);
     await replaceReceiptItems("picks-owner", d.receipt.id, {
-      expectedRevision: 1,
+      expectedRevision: (await receiptRow(d.receipt.id)).revision,
       items: [{ lineNumber: 1, name: "Soup", quantity: "1", unitPrice: "5.00", totalPrice: "5.00" }],
     });
     expect((await participantRow(d.maya.id)).picksSubmittedAt).toBeNull();

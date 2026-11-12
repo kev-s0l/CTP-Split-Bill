@@ -75,11 +75,13 @@ export const pickingPaused = () =>
 // there is no owner, and guests write only their own rows, so no expected revision.
 // It requires picking open, where lockEditableReceipt requires it paused (ADR-0017).
 // A receipt that vanished or started parsing is the same 404 as a bad token.
-export async function lockReceiptForGuest(db: ReceiptDb, receiptId: string) {
+// advanceRevision is false for done, which advances it only when the flag
+// actually changes; setting revision to itself still takes the row lock.
+export async function lockReceiptForGuest(db: ReceiptDb, receiptId: string, advanceRevision = true) {
   const live = { id: receiptId, deletedAt: null, parseStatus: { not: "PARSING" as const } };
   const locked = await db.receipt.updateMany({
     where: { ...live, status: "DRAFT", picksOpenedAt: { not: null } },
-    data: { revision: { increment: 1 } },
+    data: { revision: { increment: advanceRevision ? 1 : 0 } },
   });
   if (locked.count === 0) {
     const receipt = await db.receipt.findFirst({ where: live, select: { status: true } });

@@ -10,7 +10,6 @@ import { ApiError } from "./errors";
 import {
   lockOwnedDraft,
   lockReceiptForGuest,
-  pickingPaused,
   receiptScope,
   requireReceiptUser,
 } from "./receipt-access";
@@ -316,37 +315,27 @@ export async function replacePicks(token: string, input: ReplacePicksInput) {
   });
 }
 
-function assertGuestCanWrite(receipt: { status: string; picksOpenedAt: Date | null }) {
-  if (receipt.status === "FINALIZED") {
-    throw new ApiError("CONFLICT", "Receipt is finalized", 409);
-  }
-  if (receipt.picksOpenedAt === null) throw pickingPaused();
-}
-
-// Idempotent: a second press keeps the first time. No revision change, since
-// only the holder's own done flag moves.
+// Idempotent: a second press keeps the first time. The first press advances
+// the revision so the organizer's polling picks screen (ADR-0018) sees it;
+// picking is open, so no owner draft can go stale.
 export async function markPicksDone(token: string) {
-  const holder = await findHolder(prisma, token);
-  assertGuestCanWrite(holder.receipt);
-  const updated = await prisma.participant.updateMany({
-    where: {
-      id: holder.id,
-      pickTokenHash: hashPickToken(token),
-      picksSubmittedAt: null,
-      receipt: {
-        deletedAt: null,
-        status: "DRAFT",
-        parseStatus: { not: "PARSING" },
-        picksOpenedAt: { not: null },
-      },
-    },
-    data: { picksSubmittedAt: new Date() },
+  const found = await findHolder(prisma, token);
+  return prisma.$transaction(async (tx) => {
+    await lockReceiptForGuest(tx, found.receiptId, false);
+    // Re-check under the lock, as replacePicks does.
+    const holder = await findHolder(tx, token);
+    const updated = await tx.participant.updateMany({
+      where: { id: holder.id, picksSubmittedAt: null },
+      data: { picksSubmittedAt: new Date() },
+    });
+    if (updated.count === 1) {
+      await tx.receipt.update({
+        where: { id: holder.receiptId },
+        data: { revision: { increment: 1 } },
+      });
+    }
+    return projectPicks(tx, holder.receiptId, holder.id);
   });
-  if (updated.count === 0) {
-    // Already done, or the link, receipt or mode changed in between: re-check.
-    assertGuestCanWrite((await findHolder(prisma, token)).receipt);
-  }
-  return projectPicks(prisma, holder.receiptId, holder.id);
 }
 
 // --- Picking switch and the organizer's own picks ----------------------------
