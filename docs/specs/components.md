@@ -17,16 +17,24 @@ query plan or a currency decision into whatever screen renders it next.
 
 - `apps/web/app/components/ui/` — **layer 1**, shadcn primitives: `card.tsx`
   (`Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`,
-  `CardContent`, `CardFooter`) and `button.tsx` (`Button`, `buttonVariants`).
+  `CardContent`, `CardFooter`), `button.tsx` (`Button`, `buttonVariants`),
+  `dropdown-menu.tsx` (`DropdownMenu` and its parts), `skeleton.tsx`
+  (`Skeleton`), `alert.tsx` (`Alert`, `AlertTitle`, `AlertDescription`) and
+  `sonner.tsx` (`Toaster`).
 - `apps/web/app/components/` (outside `ui/`) — **layer 2**, domain
-  components: `BillCard.tsx`.
+  components: `BillCard.tsx`, `UserMenu.tsx`, and the async-state blocks
+  `LoadingState.tsx`, `EmptyState.tsx` and `ErrorState.tsx`.
 - `apps/web/app/lib/cn.ts` — `cn()`, the `clsx` + `tailwind-merge` helper
   layer-1 files merge `className` through.
 - `apps/web/components.json` — shadcn CLI config: `new-york` style,
   `rsc: true`, aliases `@/app/components/ui` and `@/app/lib/cn`.
 - `apps/web/app/globals.css` — `@import "tailwindcss"`, the design tokens,
   and the shadcn alias block; the only stylesheet.
-- `apps/web/app/layout.tsx` — the app shell every page renders inside.
+- `apps/web/app/layout.tsx` — the app shell every page renders inside: the
+  header, its account slot and sign-out Server Action, and the toast host.
+- `apps/web/app/error.tsx` — the root error boundary, drawn with
+  `ErrorState`.
+- `apps/web/tests/components.test.ts` — static-markup rendering checks.
 - No component lives in `packages/` ([ADR-0016](../adr/0016-shadcn-ui-primitives.md)).
 
 ## Layer 1 — primitives (`components/ui/`)
@@ -59,7 +67,8 @@ query plan or a currency decision into whatever screen renders it next.
 2. **No client boundary without state.** A domain component carries
    `"use client"` only if it owns state, an effect, or an event handler
    itself. Rendering a client primitive does not make the parent a client
-   component. None currently do.
+   component. `UserMenu` is the one that does: it owns the handler that
+   keeps the menu open while sign-out submits.
 3. **No `className` or `variant` prop.** A domain component may pass
    `className` and `variant` *down* to primitives; it does not accept them
    *from* screens. The overridable surface ends at layer 1. A screen that
@@ -145,9 +154,35 @@ resolves to the OS preference too.
 ## The shell
 
 `layout.tsx` renders the shell around every page: a `canvas` background, a
-`surface` header bar holding the app name as a link to `/`, and a single
-`<main>` content column (`max-w-2xl`). Pages render inside that `<main>` and
-do not render their own.
+`surface` header bar, a single `<main>` content column (`max-w-2xl`), and one
+`Toaster`. Pages render inside that `<main>` and do not render their own
+header, `<main>` or toast host.
+
+- **The header** holds the app name as a link to `/` on the left and the
+  account slot on the right. Both are at least 44px tall, and the bar fits a
+  375px viewport with no horizontal scroll.
+- **The account slot** is its own Suspense boundary, so a page never waits
+  on it; while it loads it shows a `Skeleton` the size of the menu trigger.
+  - No session: the slot is empty and the header shows only the app name.
+  - A session: the slot reads the profile in-process with `currentUserId()`
+    and `getCurrentUser()`, the same query as
+    [`GET /api/me`](auth/profile.md), and renders `UserMenu` with the
+    user's name.
+  - The profile read fails (the user record is gone, the query errors):
+    `UserMenu` renders with the name "Account", so sign-out stays
+    reachable. The failure is logged on the server and the page renders
+    normally.
+  - The session itself can't be read: the slot is empty, since there is no
+    known user to sign out, and the failure is logged.
+- **Sign out** submits a Server Action that calls Auth.js `signOut()`,
+  which revokes the database session, then redirects to `/`.
+- **Toasts.** The `Toaster` follows the OS theme like every other token.
+  Client leaves call `toast()` from `sonner` for the optimistic-rollback
+  toasts that [web](web.md) requires.
+- **The root error boundary** (`app/error.tsx`) catches a page that throws
+  outside its own section boundaries. It renders `ErrorState` with generic
+  copy and never the error's message; retry refetches the server data and
+  resets the boundary.
 
 ## The primitives
 
@@ -166,7 +201,46 @@ Radix `Slot`). Variants: `default`, `destructive`, `outline`, `secondary`,
 `ghost`, `link`; sizes `default`, `xs`, `sm`, `lg`, and the `icon*` sizes.
 It is a server-compatible component; the handler lives in its caller.
 
-## The composition
+**`DropdownMenu`** is Radix's menu: Enter, Space or ArrowDown on the trigger
+opens it and focuses the first item, arrow keys move between items, and
+Escape or a selection closes it and returns focus to the trigger. Content
+renders in a portal, so it is absent from markup until opened.
+
+**`Skeleton`** is a pulsing placeholder block. **`Alert`** is a bordered
+panel with `role="alert"`; its `destructive` variant draws in `danger`.
+**`Toaster`** is the Sonner host; its generated file is edited to take the
+OS theme (`theme="system"`) instead of `next-themes`.
+
+## The compositions
+
+### `UserMenu`
+
+`UserMenu` takes `name` (a display string) and `signOutAction` (a Server
+Action).
+Its trigger is a ghost `Button` showing `name`, truncated so a long name
+never widens the header. The menu holds a label, "Signed in as" plus `name`,
+then a separator, then a "Sign out" item that submits `signOutAction` from
+a `<form>`. The trigger and every item are at least 44px tall. The keyboard
+behavior is the primitive's. Its one handler keeps the menu open when "Sign
+out" is selected: the menu's content unmounts on close, and a form removed
+before the browser submits it is never sent.
+
+### Async states
+
+The building blocks for the async-honesty standard in [web](web.md). A
+screen decides when each one shows; these decide what it looks like.
+
+| Component | Props | Renders |
+|---|---|---|
+| `LoadingState` | `label`, `rows` (default 3) | a `role="status"` region announcing `label` to screen readers, with `rows` `Skeleton` bars; the Suspense fallback for a section |
+| `EmptyState` | `title`, `message`, `actionLabel`, `actionHref` | the title and message, and one primary action as a link drawn as a `Button`. There is no variant without an action |
+| `ErrorState` | `title`, `message`, `onRetry` | a destructive `Alert` with the title, message and a "Try again" button that calls `onRetry` |
+
+`ErrorState` takes a handler, so its callers are client components (error
+boundaries, client leaves). It carries no `"use client"` of its own: it
+joins the client bundle through its caller.
+
+### `BillCard`
 
 `BillCard` renders one bill's summary into the card slots: `restaurant` in
 `CardTitle` inside the header; `paidTo` / `partyCount` / `total` in
@@ -216,7 +290,7 @@ its line from this section.
   `grep -rE "@project/(domain|db|services|auth)|currentUserId|prisma" apps/web/app/components/ --exclude-dir=ui`
   returns nothing.
 - Layer-2 rule 2: `grep -r "use client" apps/web/app/components/ --exclude-dir=ui`
-  returns nothing while no domain component owns state.
+  returns only `UserMenu.tsx`.
 - Layer-2 rules 3 and 6: `grep -rnE "className\??:|variant\??:|dark:" apps/web/app/components/ --exclude-dir=ui`
   returns nothing.
 - Token rule: `grep -rE "(neutral|gray|slate|zinc|blue)-[0-9]" apps/web/app/`
@@ -225,9 +299,25 @@ its line from this section.
   props: `Card`'s slots appear in the order given (fails if `Card` stops
   rendering `children`), `Card` styles through the aliased tokens
   (`bg-card`, `text-card-foreground`), and `BillCard` renders its display
-  strings untouched.
+  strings untouched. It also renders, from literal props:
+  - `LoadingState`: a `role="status"` region with the label and exactly
+    `rows` skeleton bars.
+  - `EmptyState`: the title, message, and an action link with the given
+    label and href.
+  - `ErrorState`: a `role="alert"` region with the title, message and a
+    "Try again" button.
+  - `UserMenu`: a trigger showing the name, marked as opening a menu.
+  - `app/error.tsx`, given an error with a message, never renders that
+    message.
 - Visual pass: `pnpm dev`, open `/` in light and dark OS themes — the header,
   canvas, and starter panel use the token colors in both.
+- Phone pass ([web](web.md)) at 375px, signed in with a long display name:
+  no horizontal scroll, the name truncates, and the trigger and "Sign out"
+  are at least 44px tall and work by tap.
+- Keyboard-only pass: Tab to the trigger, Enter opens the menu with focus on
+  "Sign out", arrow keys move, Escape closes it with focus back on the
+  trigger. Enter on "Sign out" signs out and lands on `/` with no menu.
+- Signed-out pass: `/` shows the header with the app name and no menu.
 
 ## Key ADRs
 

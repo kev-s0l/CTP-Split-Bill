@@ -20,7 +20,7 @@ Organizers need a private, persistent identity so receipt and bill data stays av
 - Choosing GitHub starts an OAuth authorization flow. On return, the app validates the provider response and creates or finds the local user through the linked GitHub account.
 - The app stores sessions in the database and sends the browser a secure, HTTP-only session cookie. The session identifies the local database `User.id`.
 - GitHub's verified primary email supplies `User.email`. If GitHub does not provide a verified email, sign-in fails before creating a user. `User.name` uses the GitHub display name when present, otherwise the GitHub login. The avatar is display metadata and may be absent.
-- A successful sign-in returns the organizer to the app. Auth.js's sign-out endpoint revokes the database session; protected pages then redirect to `/api/auth/signin`.
+- A successful sign-in returns the organizer to the app. Signing out, from the header's user menu ([components](../components.md)) or Auth.js's sign-out endpoint, revokes the database session; protected pages then redirect to `/api/auth/signin`.
 - Pages outside the public surface redirect signed-out visitors to `/api/auth/signin`.
 - Protected API routes derive identity from the session. A signed-out request receives HTTP 401 with `{ error: { code, message } }`.
 - Every data query remains scoped to the session's local user ID. Unknown and foreign resources return 404.

@@ -22,12 +22,14 @@
     "@project/services": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "lucide-react": "^1.71.0",
     "next": "15.5.21",
     "pg": "^8.13.0",
     "pglite-prisma-adapter": "0.6.1",
     "radix-ui": "^1.8.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
