@@ -21,6 +21,8 @@ on every branch, for every feature.
   own Suspense boundaries — no full-page spinners.
 - Quick actions apply optimistically and roll back with an explanatory toast.
 - Errors surface; they are never silently swallowed.
+- The shared building blocks (`LoadingState`, `EmptyState`, `ErrorState`,
+  the toast host) are in [components](components.md).
 
 ## Mobile (UI standard)
 
