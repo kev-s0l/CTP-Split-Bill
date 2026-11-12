@@ -30,7 +30,8 @@ items (receipts/guest-picks.md) without the app sending anything itself.
   root would pull in the database client.
 - apps/web/app/components/ui/: shadcn `alert-dialog`, `input` and `label`,
   generated from the `radix-ui` package already installed (no new dependency).
-- apps/web/tests/participants-screen.test.ts.
+- apps/web/tests/participants-screen.test.ts and participants-page.test.ts
+  (page access).
 - Writes go through the existing routes: PUT
   `/api/receipts/[id]/participants` (receipts/participants.md) and POST
   `/api/receipts/[id]/participants/[participantId]/pick-link`
@@ -41,7 +42,9 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 ### Loading and access
 
 - The page is at `/receipts/[id]/participants`. Signed-out visitors are sent
-  to sign-in by the middleware. A foreign, unknown or deleted receipt renders
+  to `/login` and returned here after signing in (auth/sign-in.md); the page
+  itself does the same if the session ends after the middleware check. A
+  foreign, unknown or deleted receipt renders
   the not-found page, never a permission message.
 - While the receipt loads, the roster section shows `LoadingState`. A failed
   read shows `ErrorState`; "Try again" refetches.

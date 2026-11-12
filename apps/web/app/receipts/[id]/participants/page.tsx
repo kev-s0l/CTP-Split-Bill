@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { currentUserId } from "@project/auth";
 import { ApiError, getReceipt } from "@project/domain";
 import { LoadingState } from "../../../components/LoadingState";
+import { loginPath } from "../../../lib/page-access";
 import { ParticipantsEditor } from "./ParticipantsEditor";
 import { toEditorReceipt } from "./roster";
 
@@ -28,15 +29,18 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
 }
 
 async function Roster({ receiptId }: { receiptId: string }) {
+  // Middleware normally signs visitors in first; this covers a session that
+  // ends between the two checks.
+  const signIn = loginPath(`/receipts/${encodeURIComponent(receiptId)}/participants`);
   const userId = await currentUserId();
-  if (!userId) redirect("/api/auth/signin");
+  if (!userId) redirect(signIn);
   try {
     const receipt = await getReceipt(userId, receiptId);
     return <ParticipantsEditor initial={toEditorReceipt(receipt)} />;
   } catch (e) {
     // Foreign and unknown receipts look the same: not found, never forbidden.
     if (e instanceof ApiError && e.status === 404) notFound();
-    if (e instanceof ApiError && e.status === 401) redirect("/api/auth/signin");
+    if (e instanceof ApiError && e.status === 401) redirect(signIn);
     throw e;
   }
 }

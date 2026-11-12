@@ -12,11 +12,16 @@ export function safeCallbackPath(value: string | null | undefined): string {
   return value;
 }
 
+// The sign-in page, returning to callbackPath afterwards.
+export function loginPath(callbackPath: string): string {
+  return `${LOGIN_PATH}?${new URLSearchParams({ callbackUrl: callbackPath })}`;
+}
+
 // Returns the path to redirect to, or null to let the request through.
 export function pageRedirect(pathname: string, search: string, signedIn: boolean): string | null {
   if (pathname === LOGIN_PATH) {
     return signedIn ? safeCallbackPath(new URLSearchParams(search).get("callbackUrl")) : null;
   }
   if (PUBLIC_PAGES.has(pathname) || signedIn) return null;
-  return `${LOGIN_PATH}?${new URLSearchParams({ callbackUrl: `${pathname}${search}` })}`;
+  return loginPath(`${pathname}${search}`);
 }
