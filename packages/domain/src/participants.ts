@@ -11,24 +11,7 @@ import {
   requireReceiptUser,
 } from "./receipt-access";
 import { ExpectedRevision, presentReceipt, receiptDetail } from "./receipt";
-
-// US numbers may skip the +1; anything else must start with + and a country code.
-// The spec allows parentheses, spaces, and hyphens, but strips them out in the string.
-export function normalizePhone(raw: string): string | null {
-  const digits = raw.replace(/[\s().-]/g, "");
-  if (/^\d{10}$/.test(digits)) return `+1${digits}`;
-  if (/^1\d{10}$/.test(digits)) return `+${digits}`;
-  if (/^\+[1-9]\d{7,14}$/.test(digits)) return digits;
-  return null;
-}
-
-// One address, local@domain, no spaces; trimmed and lowercased for storage.
-export function normalizeEmail(raw: string): string | null {
-  const email = raw.trim().toLowerCase();
-  if (email.length > 254) return null;
-  if (!/^[^\s@]+@[^\s@]+$/.test(email)) return null;
-  return email;
-}
+import { normalizeEmail, normalizePhone } from "./contact";
 
 // checks request body for 50 characters or less, no duplicate ids, and valid phone numbers.
 // Returns a normalized phone number or null.

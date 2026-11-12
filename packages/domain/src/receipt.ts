@@ -83,10 +83,15 @@ export const receiptDetail = {
 
 // Every receiptDetail read goes through here: the pick-token hash is reduced to
 // hasPickLink and never leaves the domain (receipts/detail.md).
-export function presentReceipt<P extends { pickTokenHash: string | null }, R extends { participants: P[] }>(receipt: R) {
+type PresentedParticipant<P> = Omit<P, "pickTokenHash"> & { hasPickLink: boolean };
+
+export function presentReceipt<P extends { pickTokenHash: string | null }, R extends { participants: P[] }>(
+  receipt: R & { participants: P[] },
+): Omit<R, "participants"> & { participants: PresentedParticipant<P>[] } {
+  const { participants, ...rest } = receipt;
   return {
-    ...receipt,
-    participants: receipt.participants.map(({ pickTokenHash, ...participant }) => ({
+    ...rest,
+    participants: participants.map(({ pickTokenHash, ...participant }) => ({
       ...participant,
       hasPickLink: pickTokenHash !== null,
     })),
