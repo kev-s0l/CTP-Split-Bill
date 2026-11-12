@@ -7,6 +7,8 @@ import NextAuth from "next-auth";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   session: { strategy: "database" },
+  // The app's own sign-in card; Auth.js sends sign-in and its errors here.
+  pages: { signIn: "/login", error: "/login" },
   providers: [
     GitHub({
       authorization: { params: { scope: "read:user user:email" } },
