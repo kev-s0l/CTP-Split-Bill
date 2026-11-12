@@ -70,4 +70,4 @@ Party specifications and APIs are retired. Historical SQL remains append-only.
 - ADR-0004: Prisma schema and SQL migrations.
 - ADR-0009: web-only domain package.
 - ADR-0014: receipt-owned domain.
-- ADR-0015 (proposed): per-participant pick links.
+- ADR-0015: per-participant pick links.

@@ -62,7 +62,10 @@ export const receiptDetail = {
   purchasedAt: true, currency: true, subtotal: true, tax: true, tip: true,
   total: true, createdAt: true, updatedAt: true,
   participants: {
-    select: { id: true, displayName: true, phone: true, joinedAt: true },
+    select: {
+      id: true, displayName: true, phone: true, email: true, joinedAt: true,
+      pickTokenHash: true, picksSubmittedAt: true,
+    },
     orderBy: [{ joinedAt: "asc" }, { id: "asc" }],
   },
   items: {
@@ -77,6 +80,18 @@ export const receiptDetail = {
     orderBy: { lineNumber: "asc" },
   },
 } satisfies Prisma.ReceiptSelect;
+
+// Every receiptDetail read goes through here: the pick-token hash is reduced to
+// hasPickLink and never leaves the domain (receipts/detail.md).
+export function presentReceipt<P extends { pickTokenHash: string | null }, R extends { participants: P[] }>(receipt: R) {
+  return {
+    ...receipt,
+    participants: receipt.participants.map(({ pickTokenHash, ...participant }) => ({
+      ...participant,
+      hasPickLink: pickTokenHash !== null,
+    })),
+  };
+}
 
 type StoredMoney = { toString(): string } | null;
 
@@ -121,7 +136,7 @@ export async function getReceipt(userId: string, receiptId: string) {
   await requireReceiptUser(userId);
   const receipt = await prisma.receipt.findFirst({ where: receiptScope(userId, receiptId), select: receiptDetail });
   if (!receipt) throw new ApiError("NOT_FOUND", "Receipt not found", 404);
-  return receipt;
+  return presentReceipt(receipt);
 }
 
 export async function getReceiptImage(userId: string, receiptId: string) {
@@ -173,9 +188,9 @@ export async function updateReceipt(userId: string, receiptId: string, input: Up
     if (input.reviewConfirmed) {
       validateReceiptInformation(receipt);
       await tx.receiptItem.updateMany({ where: { receiptId, receipt: scope }, data: { isVerified: true } });
-      return tx.receipt.update({ where: scope, data: { reviewedAt: new Date() }, select: receiptDetail });
+      return presentReceipt(await tx.receipt.update({ where: scope, data: { reviewedAt: new Date() }, select: receiptDetail }));
     }
-    return receipt;
+    return presentReceipt(receipt);
   });
 }
 
@@ -186,12 +201,14 @@ export async function replaceReceiptItems(userId: string, receiptId: string, inp
     await lockEditableReceipt(tx, userId, receiptId, input.expectedRevision);
     await tx.sharedItemAllocation.deleteMany({ where: { receiptId, item: { receipt: scope } } });
     await tx.receiptItem.deleteMany({ where: { receiptId, receipt: scope } });
+    // Picks went with the old items, so nobody is done picking any more.
+    await tx.participant.updateMany({ where: { receiptId }, data: { picksSubmittedAt: null } });
     if (input.items.length) {
       await tx.receiptItem.createMany({
         data: input.items.map((item) => ({ receiptId, ...item, isVerified: true })),
       });
     }
-    return tx.receipt.update({ where: scope, data: { reviewedAt: null }, select: receiptDetail });
+    return presentReceipt(await tx.receipt.update({ where: scope, data: { reviewedAt: null }, select: receiptDetail }));
   });
 }
 
@@ -233,7 +250,7 @@ export async function createReceipt(
 ) {
   await requireReceiptUser(userId);
 
-  return prisma.receipt.create({
+  return presentReceipt(await prisma.receipt.create({
     data: {
       id: input.id,
       ownerId: userId,
@@ -241,5 +258,5 @@ export async function createReceipt(
       imageContentType: input.imageContentType,
     },
     select: receiptDetail,
-  });
+  }));
 }

@@ -138,7 +138,11 @@ model Participant {
   receipt     Receipt  @relation("ReceiptParticipants", fields: [receiptId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   displayName String   @map("display_name")
   phone       String?
+  email       String?
   joinedAt    DateTime @default(now()) @map("joined_at")
+  // SHA-256 of the guest pick token (ADR-0015); the raw token is never stored.
+  pickTokenHash    String?   @unique @map("pick_token_hash")
+  picksSubmittedAt DateTime? @map("picks_submitted_at")
 
   assignedItems     ReceiptItem[]         @relation("ItemAssignee")
   sharedAllocations SharedItemAllocation[]

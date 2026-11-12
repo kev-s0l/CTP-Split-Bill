@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { prisma, type Prisma } from "@project/db";
 import { ApiError } from "./errors";
-import { ExpectedRevision, receiptDetail, validateReceiptInformation } from "./receipt";
+import { ExpectedRevision, presentReceipt, receiptDetail, validateReceiptInformation } from "./receipt";
 import { lockEditableReceipt, receiptScope, requireReceiptUser } from "./receipt-access";
 import { allocateSplit, centsToMoney, toCents } from "./split";
 
@@ -109,7 +109,7 @@ export async function replaceReceiptAssignments(
         data: { assignedParticipantId: assignment.participantId },
       });
     }
-    return tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail });
+    return presentReceipt(await tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail }));
   });
 }
 
@@ -173,7 +173,7 @@ export async function replaceReceiptSharedAllocations(
         ),
       });
     }
-    return tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail });
+    return presentReceipt(await tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail }));
   });
 }
 
@@ -292,11 +292,11 @@ export async function finalizeReceipt(
         amountOwed: centsToMoney(bill.amountOwed),
       })),
     });
-    return tx.receipt.update({
+    return presentReceipt(await tx.receipt.update({
       where: { ...scope, status: "DRAFT" },
       data: { status: "FINALIZED", finalizedAt: new Date() },
       select: receiptDetail,
-    });
+    }));
   });
 }
 
@@ -315,13 +315,24 @@ const billDetail = {
 
 type StoredBill = Prisma.BillGetPayload<{ select: typeof billDetail }>;
 
+// A bill is settled once paid, when it is the payer's own, or when nothing is owed.
+// Shared with the guest split projection (picks.ts) so both screens agree.
+export function isBillSettled(
+  bill: { participantId: string; paidAt: Date | null },
+  amountOwed: bigint,
+  paidByParticipantId: string | null,
+) {
+  return (
+    bill.paidAt !== null ||
+    bill.participantId === paidByParticipantId ||
+    amountOwed === 0n
+  );
+}
+
 function presentBill(bill: StoredBill, paidByParticipantId: string | null) {
   const { participant, ...amounts } = bill;
   const amountOwed = toCents(bill.amountOwed.toString());
-  const settled =
-    bill.paidAt !== null ||
-    bill.participantId === paidByParticipantId ||
-    amountOwed === 0n;
+  const settled = isBillSettled(bill, amountOwed, paidByParticipantId);
   return {
     ...amounts,
     displayName: participant.displayName,

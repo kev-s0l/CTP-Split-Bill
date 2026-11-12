@@ -121,6 +121,29 @@ describe("PUT /api/receipts/:id/participants", () => {
     expect((await roster(r.id))[0].phone).toBeNull();
   });
 
+  it("trims and lowercases emails, keeps an omitted one and clears it on an empty string", async () => {
+    await put(r.id, { participants: [
+      { id: r.participants[alex].id, email: " Maya@Example.com " },
+      { id: r.participants[sam].id, email: "sam@localhost" },
+    ] });
+    const emails = async () => (await prisma.participant.findMany({
+      where: { receiptId: r.id }, orderBy: { joinedAt: "asc" }, select: { email: true },
+    })).map((p) => p.email);
+    expect(await emails()).toEqual(["maya@example.com", "sam@localhost"]);
+    await put(r.id, { expectedRevision: 2, participants: [
+      { id: r.participants[alex].id },                 // email omitted → kept
+      { id: r.participants[sam].id, email: "" },       // "" → cleared
+    ] });
+    expect(await emails()).toEqual(["maya@example.com", null]);
+  });
+
+  it("removing a participant revokes their pick link", async () => {
+    const hash = "a".repeat(64);
+    await prisma.participant.update({ where: { id: r.participants[sam].id }, data: { pickTokenHash: hash } });
+    expect((await put(r.id, { participants: [{ id: r.participants[alex].id }] })).status).toBe(200);
+    expect(await prisma.participant.findFirst({ where: { pickTokenHash: hash } })).toBeNull();
+  });
+
   it("keeps reviewedAt when names change", async () => {
     await put(r.id, { participants: [{ id: r.participants[alex].id, displayName: "Alexandra" }, { id: r.participants[sam].id }] });
     const after = await prisma.receipt.findUniqueOrThrow({ where: { id: r.id } });
@@ -132,6 +155,9 @@ describe("PUT /api/receipts/:id/participants", () => {
   it.each([
     ["not JSON", "{oops", "Body must be valid JSON"],
     ["an invalid phone", { participants: [{ phone: "12" }] }, "phone: Enter a valid phone number"],
+    ["an incomplete email", { participants: [{ email: "maya@" }] }, "email: Enter a valid email address"],
+    ["two emails", { participants: [{ email: "a@b.com, c@d.com" }] }, "email: Enter a valid email address"],
+    ["a 255-character email", { participants: [{ email: `${"x".repeat(249)}@b.com` }] }, "email: Enter a valid email address"],
     ["no people", { participants: [] }, "participants: Add at least one person"],
     ["more than 50 people", { participants: Array.from({ length: 51 }, () => ({})) }, "participants: A receipt can have at most 50 people"],
     ["a 51-character name", { participants: [{ displayName: "x".repeat(51) }] }, "participants.0.displayName: Name must be 50 characters or fewer"],
