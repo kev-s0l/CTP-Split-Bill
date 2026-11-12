@@ -38,7 +38,7 @@ that isn't ready can't be reached, by button or by URL.
 
 | Route | Screen |
 |---|---|
-| `/sign-in` | Sign in |
+| `/login` | Sign in (docs/specs/auth/sign-in.md) |
 | `/` | Bills list |
 | `/receipts/new` | Upload |
 | `/receipts/[id]` | Redirects to the furthest available step |
