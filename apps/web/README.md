@@ -35,7 +35,8 @@ pnpm dev:web     # starts the Next.js dev server
 
 The dev server expects a Postgres server and Azurite running alongside it.
 Start everything together with `pnpm dev` from the repo root. The dev server
-uses Turbopack (`--turbopack`).
+uses webpack, like `next build`, not Turbopack — see the "Dev server and
+bundler" section of `docs/specs/web.md`.
 
 ## When it changes
 

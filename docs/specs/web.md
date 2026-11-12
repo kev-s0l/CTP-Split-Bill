@@ -59,6 +59,21 @@ Every route handler and Server Action, in order:
   [guest picks](receipts/guest-picks.md).
 - Raw errors and stack traces never reach a client.
 
+## Dev server and bundler
+
+- `pnpm dev` runs `next dev` with webpack, the same bundler `next build`
+  uses. Turbopack is not used: it statically resolves the OCR adapter's
+  runtime-computed `fork()` path in `packages/services/src/ocr.ts` against
+  `apps/web` and fails to compile every route that imports
+  `@project/services`.
+- The parse route's build trace (`outputFileTracingIncludes` in
+  `apps/web/next.config.ts`) carries `ocr-worker.cjs`, `pnpm-workspace.yaml`
+  and the Tesseract packages, so the forked worker exists at runtime.
+- Re-enabling Turbopack — including through a Next.js upgrade that makes it
+  the default — first requires keeping the worker path out of its static
+  analysis. See
+  [the postmortem](../postmortems/2026-11-receipt-dev-compilation.md).
+
 ## Verify
 
 - The integration suite exercises one happy + one sad path per endpoint.
@@ -66,6 +81,14 @@ Every route handler and Server Action, in order:
 - Phone pass on every page a PR adds or changes: open it in browser devtools
   at 375px wide (or on a real phone), confirm no horizontal scroll, every
   action reachable and tappable without zooming, and no hover-only controls.
+- Dev-server receipt drill: with `pnpm dev` running, a signed-out
+  `GET /api/receipts` returns 401 with the JSON error shape (a 500 means the
+  route failed to compile). Signed in, list receipts (200), upload a photo
+  (201), fetch its image (200), and `POST` parse with the current revision
+  (200), then confirm the extracted items and totals.
+- After `pnpm build`,
+  `apps/web/.next/server/app/api/receipts/[id]/parse/route.js.nft.json` lists
+  `packages/services/src/ocr-worker.cjs`.
 
 ## Key decisions
 
