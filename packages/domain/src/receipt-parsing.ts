@@ -2,7 +2,7 @@ import { z } from "zod";
 import { prisma } from "@project/db";
 import { ApiError } from "./errors";
 import { presentReceipt, receiptDetail, ExpectedRevision } from "./receipt";
-import { receiptScope, requireReceiptUser } from "./receipt-access";
+import { pickingOpen, receiptScope, requireReceiptUser } from "./receipt-access";
 
 // Starting and finishing an attempt each consume a PostgreSQL integer revision.
 export const ParseReceipt = ExpectedRevision.extend({
@@ -77,14 +77,15 @@ export async function startReceiptParsing(userId: string, receiptId: string, exp
   return prisma.$transaction(async (tx) => {
     const started = await tx.receipt.updateMany({
       where: {
-        ...scope, status: "DRAFT", revision: expectedRevision,
+        ...scope, status: "DRAFT", revision: expectedRevision, picksOpenedAt: null,
         OR: [{ parseStatus: { not: "PARSING" } }, { updatedAt: { lt: new Date(Date.now() - 300_000) } }],
       },
       data: { parseStatus: "PARSING", parseError: null, revision: { increment: 1 } },
     });
     if (!started.count) {
-      const receipt = await tx.receipt.findFirst({ where: scope, select: { id: true } });
+      const receipt = await tx.receipt.findFirst({ where: scope, select: { status: true, picksOpenedAt: true } });
       if (!receipt) throw new ApiError("NOT_FOUND", "Receipt not found", 404);
+      if (receipt.status === "DRAFT" && receipt.picksOpenedAt !== null) throw pickingOpen();
       throw new ApiError("CONFLICT", "Receipt has changed or cannot be parsed; reload before retrying", 409);
     }
     return tx.receipt.findFirstOrThrow({

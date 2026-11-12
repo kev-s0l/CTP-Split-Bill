@@ -120,6 +120,12 @@ model Receipt {
   paidByParticipantId String?      @map("paid_by_participant_id")
   paidByParticipant   Participant? @relation("ReceiptPayer", fields: [id, paidByParticipantId], references: [receiptId, id], onDelete: Restrict, onUpdate: NoAction)
 
+  // Picking open (ADR-0017): null is Editing, a timestamp is Picking open.
+  picksOpenedAt DateTime? @map("picks_opened_at")
+  // The organizer's own roster row (ADR-0018); null on receipts created before it.
+  organizerParticipantId String?      @map("organizer_participant_id")
+  organizerParticipant   Participant? @relation("ReceiptOrganizer", fields: [id, organizerParticipantId], references: [receiptId, id], onDelete: Restrict, onUpdate: NoAction)
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -148,6 +154,7 @@ model Participant {
   sharedAllocations SharedItemAllocation[]
   bills             Bill[]
   paidReceipts      Receipt[]             @relation("ReceiptPayer")
+  organizerOf       Receipt[]             @relation("ReceiptOrganizer")
 
   @@unique([receiptId, id])
   @@index([receiptId, joinedAt, id])

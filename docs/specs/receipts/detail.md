@@ -22,7 +22,9 @@ and inspect a finalized receipt without exposing internal parser/blob data.
 - Collection GET returns only owned, non-deleted receipts, ordered by createdAt
   descending then id ascending, with id, title, merchantName, purchasedAt, status, total
   and createdAt.
-- GET returns id, ownerId, title, payer participant, business/parse/split state,
+- GET returns id, ownerId, title, payer participant, organizerParticipantId
+  (null on receipts created before the organizer row), business/parse/split
+  state, picksOpenedAt (null while editing; receipts/guest-picks.md),
   revision, review/finalization timestamps, merchant/address/purchase date,
   currency, nullable amounts, creation/update times, participants and items.
 - Participants include id, displayName, phone, email, joinedAt, hasPickLink

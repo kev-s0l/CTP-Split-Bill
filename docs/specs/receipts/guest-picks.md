@@ -13,13 +13,16 @@ what to pay without an account or a second link.
 
 ## Where it lives
 
-- packages/db/prisma/schema.prisma: Participant.pickTokenHash and
-  Participant.picksSubmittedAt, added by an append-only migration.
+- packages/db/prisma/schema.prisma: Participant.pickTokenHash,
+  Participant.picksSubmittedAt and Receipt.picksOpenedAt, added by
+  append-only migrations.
 - packages/domain/src/picks.ts: token issue/rotate/revoke, token lookup,
-  ReplacePicks validation and the pick transaction.
+  ReplacePicks validation, reconcileHolderPicks (shared by guest and
+  organizer picks), the pick transactions and the picking switch.
 - packages/domain/src/receipt-access.ts: lockReceiptForGuest, the guest
   sibling of lockEditableReceipt. Same DRAFT and not-PARSING guard and the
-  same revision increment, but no owner and no expected revision.
+  same revision increment, but no owner and no expected revision, and it
+  requires picking to be open where lockEditableReceipt requires it closed.
 - packages/domain/src/receipt.ts and receipt-parsing.ts: item replacement and
   parse completion clear every participant's picksSubmittedAt.
 - apps/web/app/api/receipts/[id]/participants/[participantId]/pick-link/route.ts:
@@ -27,9 +30,13 @@ what to pay without an account or a second link.
 - apps/web/app/api/picks/[token]/route.ts: GET projection (pick or split),
   PUT picks.
 - apps/web/app/api/picks/[token]/done/route.ts: POST done.
+- apps/web/app/api/receipts/[id]/picking/route.ts: POST open or pause
+  (owner-scoped).
+- apps/web/app/api/receipts/[id]/picks/route.ts: PUT the organizer's own
+  picks (owner-scoped).
 - apps/web/app/p/[token]/: the guest page, picking before finalize and the
   split summary after (see Known gaps).
-- apps/web/tests/picks-route.test.ts.
+- apps/web/tests/picks-route.test.ts and picking-route.test.ts.
 
 ## Behavior
 
@@ -43,15 +50,19 @@ what to pay without an account or a second link.
   `{ url }` once, built from the request's origin as `<origin>/p/<token>`; the
   raw token is never readable again. DELETE clears the hash and picksSubmittedAt, and is idempotent. Neither
   changes the receipt revision, because receipt content is unchanged.
+- The organizer's own row (receipts/participants.md) never gets a link: POST
+  for it returns 400 `INVALID_INPUT` and writes nothing. DELETE for it is the
+  usual idempotent no-op, since it has no hash.
 - Removing a participant (receipts/participants.md) deletes their row, and
   their hash with it, so their link 404s with no separate revoke.
 - The server sends no messages. The owner's screen turns the returned url into
   `sms:` and `mailto:` links pre-filled with the participant's stored phone or
   email (receipts/participants.md), plus a copy action. Sending again later
   means rotating, which invalidates the earlier link.
-- GET returns the receipt revision, merchant, purchase date, currency, items
-  ordered by lineNumber, every participant's id and display name, the token
-  holder's participant id, each item's pickers, and the holder's done state.
+- GET returns the receipt revision, merchant, purchase date, currency,
+  `pickingOpen`, items ordered by lineNumber, every participant's id and
+  display name, the token holder's participant id, each item's pickers, and
+  the holder's done state.
   Phones, emails, bills, owner id and image data are never returned while the
   receipt is a draft.
 - On a FINALIZED receipt, GET returns the same receipt and item fields plus,
@@ -74,10 +85,11 @@ what to pay without an account or a second link.
   - Unpicking removes the holder from the item; a shared item left with one
     picker becomes that picker's individual assignment.
   - Other participants' picks are never removed by a guest write.
-  The revision advances, so an owner saving over a view from before the pick
-  gets 409 and reloads; reviewedAt is kept because receipt content is
-  unchanged (same rule as bills/allocations.md).
-- POST done sets picksSubmittedAt to now; it is idempotent. A later PUT by the
+  The revision advances, so the organizer's picks screen sees the change on
+  its next read; reviewedAt is kept because receipt content is unchanged
+  (same rule as bills/allocations.md).
+- POST done sets picksSubmittedAt to now; it is idempotent. It needs picking
+  open, like PUT, and does not change the revision. A later PUT by the
   same holder clears it until they press done again.
 - The owner replacing items (receipts/items.md) and a successful parse
   (receipts/parse.md) each clear every participant's picksSubmittedAt, in the
@@ -87,6 +99,47 @@ what to pay without an account or a second link.
   ready when submitted, or when they have no link (the owner picks for them).
 - Finalization is not gated on readiness. Its existing completeness rules in
   bills/split-allocation.md still apply.
+### Picking and editing
+
+- A DRAFT receipt is in one of two modes (ADR-0017), stored as
+  Receipt.picksOpenedAt: null is **Editing**, a timestamp is **Picking
+  open**. Every receipt starts in Editing, including receipts that existed
+  before the column.
+- `POST /api/receipts/[id]/picking` takes `{ open: boolean }` with the owner
+  ritual and no expectedRevision. Under the receipt row lock it sets
+  picksOpenedAt to now or null and returns receipt detail. Opening an open
+  receipt keeps its timestamp; pausing a paused one is a no-op. It does not
+  change the revision. FINALIZED and PARSING receipts return 409.
+- Opening requires reviewedAt to be set (409 `CONFLICT` "Review the receipt
+  before opening picking") and at least one participant other than the
+  organizer's row (409 `CONFLICT` "Add someone to pick before opening
+  picking").
+- While picking is open, every owner write that takes expectedRevision
+  returns 409 `CONFLICT` "Pause picking to make changes" and writes nothing:
+  receipt PATCH (receipts/edit.md), item replacement (receipts/items.md),
+  the roster (receipts/participants.md), assignments and shared allocations
+  (bills/allocations.md), parse (receipts/parse.md) and finalize
+  (bills/split-allocation.md). This check comes before the revision check,
+  so a stale request gets this message rather than "reload". Pick links,
+  the organizer's own picks and the picking route keep working.
+- While editing, guest PUT and POST done return 409 `CONFLICT` "The
+  organizer is making changes" and write nothing. GET still works; the token
+  is valid, so this is never the 404.
+- Switching modes clears no picks and no picksSubmittedAt.
+
+### The organizer's own picks
+
+- `PUT /api/receipts/[id]/picks` takes `{ itemIds }`, validated as the guest
+  PUT, with the owner ritual and no expectedRevision. It reconciles the
+  receipt's organizer row exactly like a guest's picks, under the same row
+  lock, and advances the revision. It works in either mode, since it changes
+  only the organizer's own picks (ADR-0018). FINALIZED and PARSING receipts
+  return 409; a receipt with no organizer row returns 409 `CONFLICT` "You
+  aren't on this receipt". It returns receipt detail.
+- The organizer has no done state; their row's picksSubmittedAt stays null.
+
+### Links and previews
+
 - Opening a link changes nothing; only PUT and POST write. Link previews that
   messaging apps generate are therefore harmless.
 - The guest page's title and preview metadata are generic ("Split Bill") and
@@ -114,6 +167,13 @@ what to pay without an account or a second link.
 | Maya and Sam save picks at the same moment | Both saved, one after the other |
 | Guest saves an item the owner has since removed | 404, guest reloads |
 | Sam presses done, then edits picks | picksSubmittedAt cleared until done again |
+| Picking paused, Sam PUTs picks | 409 "The organizer is making changes"; GET still works |
+| Picking open, owner PATCHes the tip | 409 "Pause picking to make changes" |
+| Open picking on an unreviewed receipt | 409, still Editing |
+| Open picking with only the organizer's row | 409, still Editing |
+| Organizer PUTs their picks while picking is open | Saved; revision advances |
+| Pause picking after Maya pressed done | Maya's picks and done state kept |
+| Owner requests a pick link for their own row | 400 |
 
 ## Verify
 
@@ -122,6 +182,14 @@ what to pay without an account or a second link.
   concurrent guest saves all landing, rollback, the finalized split
   projection, 409 on writes after finalize, and that phones and emails never
   appear in token responses.
+- pnpm test (picking-route.test.ts) covers open and pause with their 409
+  preconditions, every owner write returning 409 while picking is open and
+  writing nothing, guest PUT and done returning 409 while editing with GET
+  still 200, `pickingOpen` in the projection, the organizer's picks in both
+  modes reconciling like a guest's, and 400 for the organizer's pick link.
+- API drill (pnpm dev, signed in): with picking paused, a guest PUT returns
+  409; POST picking `{ open: true }`, and the same PUT succeeds while the
+  owner's PATCH returns 409; pause again, and the PATCH succeeds.
 - pnpm typecheck and pnpm build pass.
 - API drill (pnpm dev, signed in): POST the pick-link route for a seeded
   participant; `curl /api/picks/<token>` with no cookie shows the projection
@@ -166,6 +234,11 @@ deletes its line from this section.
   ends it.
 - Only hashes are stored, so a database read does not leak working links.
 - Weighted portions are out; shared means equal, as in bills/allocations.md.
+- Picking and editing lock each other out (ADR-0017), so a guest save can't
+  undo an owner's fix and an owner save is never stale because of a pick.
+  The switch is manual; nothing opens or pauses it automatically.
+- The organizer picks through their own row with no expectedRevision
+  (ADR-0018), so polling guests' picks never makes their save stale.
 
 ## Out of scope
 

@@ -82,12 +82,18 @@ describe("receipt photo uploads", () => {
     const body = await response.json();
     expect(body).toEqual({
       id: expect.any(String), ownerId: "upload-owner", title: null, paidByParticipantId: null,
+      organizerParticipantId: expect.any(String), picksOpenedAt: null,
       status: "DRAFT", parseStatus: "NOT_STARTED", splitMode: "EVEN", revision: 1,
       reviewedAt: null, finalizedAt: null, merchantName: null, address: null,
       purchasedAt: null, currency: "USD", subtotal: null, tax: null, tip: null,
       total: null, createdAt: expect.any(String), updatedAt: expect.any(String),
-      participants: [], items: [],
+      participants: [{
+        id: expect.any(String), displayName: "Owner", phone: null, email: null,
+        joinedAt: expect.any(String), picksSubmittedAt: null, hasPickLink: false,
+      }], items: [],
     });
+    // The organizer is on their own roster from the start (ADR-0018).
+    expect(body.organizerParticipantId).toBe(body.participants[0].id);
     expect(response.headers.get("Location")).toBe(`/api/receipts/${body.id}`);
     expect(storage.uploadAttachment).toHaveBeenCalledWith(body.id, "receipt.png", "image/png", expect.any(ArrayBuffer));
     expect(new Uint8Array(storage.uploadAttachment.mock.calls[0][3])).toEqual(png);
@@ -106,6 +112,19 @@ describe("receipt photo uploads", () => {
       params: Promise.resolve({ id: body.id }),
     });
     expect(foreign.status).toBe(404);
+  });
+
+  it("names the organizer's row from the account, or \"You\" when it is blank", async () => {
+    await prisma.user.update({ where: { id: "upload-owner" }, data: { name: "  " + "A".repeat(60) + "  " } });
+    try {
+      const long = await (await POST(upload())).json();
+      expect(long.participants.map((p: { displayName: string }) => p.displayName)).toEqual(["A".repeat(50)]);
+      await prisma.user.update({ where: { id: "upload-owner" }, data: { name: "   " } });
+      const nameless = await (await POST(upload())).json();
+      expect(nameless.participants.map((p: { displayName: string }) => p.displayName)).toEqual(["You"]);
+    } finally {
+      await prisma.user.update({ where: { id: "upload-owner" }, data: { name: "Owner" } });
+    }
   });
 
   it.each([
@@ -234,7 +253,7 @@ describe("receipt photo uploads", () => {
   });
 
   it("cleans up the uploaded image when database creation fails", async () => {
-    vi.spyOn(prisma.receipt, "create").mockRejectedValueOnce(new Error("private database failure"));
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce(new Error("private database failure"));
     const response = await POST(upload());
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: { code: "INTERNAL", message: "Something went wrong" } });
@@ -245,7 +264,7 @@ describe("receipt photo uploads", () => {
   });
 
   it("preserves the mapped database error when image cleanup also fails", async () => {
-    vi.spyOn(prisma.receipt, "create").mockRejectedValueOnce({ code: "P2002", message: "private duplicate details" });
+    vi.spyOn(prisma, "$transaction").mockRejectedValueOnce({ code: "P2002", message: "private duplicate details" });
     storage.deleteAttachment.mockRejectedValueOnce(new Error("private cleanup failure"));
     const response = await POST(upload());
     expect(response.status).toBe(409);
