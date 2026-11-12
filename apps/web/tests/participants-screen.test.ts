@@ -4,11 +4,13 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { mailtoHref, pickLinkMessage, smsHref } from "../app/lib/pick-link-share";
-import { ParticipantsEditor, PickLink } from "../app/receipts/[id]/participants/ParticipantsEditor";
+import { ParticipantRow, ParticipantsEditor, PickLink } from "../app/receipts/[id]/participants/ParticipantsEditor";
 import {
   type EditorReceipt,
   type SavedParticipant,
+  contactSummary,
   fieldErrors,
+  formatPhone,
   isDirty,
   isReadOnly,
   rosterRequest,
@@ -85,6 +87,15 @@ describe("roster logic", () => {
     expect(isDirty([rows[1]!, rows[0]!], saved)).toBe(true);
   });
 
+  it("formats US phones for the row summary and lists whichever contacts exist", () => {
+    expect(formatPhone("+12125550101")).toBe("(212) 555-0101");
+    expect(formatPhone("212 555 0101")).toBe("(212) 555-0101");
+    expect(formatPhone("+447700900123")).toBe("+447700900123");
+    expect(contactSummary({ phone: "+12125550101", email: "a@example.com" })).toBe("(212) 555-0101 · a@example.com");
+    expect(contactSummary({ phone: "", email: "a@example.com" })).toBe("a@example.com");
+    expect(contactSummary({ phone: " ", email: "" })).toBe("No phone or email");
+  });
+
   it("is read-only when finalized or parsing", () => {
     expect(isReadOnly(receipt())).toBe(false);
     expect(isReadOnly(receipt({ status: "FINALIZED" }))).toBe(true);
@@ -94,6 +105,22 @@ describe("roster logic", () => {
 
 describe("participants screen renders", () => {
   const render = (r: EditorReceipt) => renderToStaticMarkup(h(ParticipantsEditor, { initial: r }));
+  const noop = () => {};
+  const rowProps = {
+    index: 0,
+    readOnly: false,
+    expanded: false,
+    onToggle: noop,
+    errors: {},
+    onChange: noop,
+    onBlur: noop,
+    onRemove: noop,
+    link: undefined,
+    linkError: undefined,
+    linkPending: false,
+    onIssueLink: noop,
+    merchantName: null,
+  };
 
   it("shows the empty state with an Add person button for an empty roster", () => {
     const html = render(receipt({ participants: [] }));
@@ -101,38 +128,58 @@ describe("participants screen renders", () => {
     expect(html).toMatch(/<button[^>]*>Add person<\/button>/);
   });
 
-  it("renders an editable row per person with a disabled Save while nothing changed", () => {
+  it("renders one compact row per person, collapsed, with a disabled Save while nothing changed", () => {
     const html = render(receipt());
-    expect(html).toContain('value="Maya"');
-    expect(html).toContain('value="sam@example.com"');
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
+    expect(html).toContain(">Maya<");
+    expect(html).toContain("(555) 201-3344");
+    expect(html).toContain("sam@example.com");
+    expect(html).not.toContain("<input");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toMatch(/>No link</);
+    expect(html).toMatch(/>Link sent</);
     expect(html).toMatch(/>Create link</);
-    expect(html).toContain("Link sent");
-    expect(html).toMatch(/>Send new link</);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
   });
 
-  it("is read-only when finalized but keeps link actions", () => {
+  it("shows the name, phone and email fields when a row is expanded", () => {
+    const [row] = rowsFrom([maya]);
+    const html = renderToStaticMarkup(h(ParticipantRow, { ...rowProps, row: row!, stored: maya, expanded: true }));
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toMatch(/<input[^>]*id="p1-name"[^>]*value="Maya"/);
+    expect(html).toMatch(/<input[^>]*id="p1-phone"/);
+    expect(html).toMatch(/<input[^>]*id="p1-email"/);
+  });
+
+  it("flags a row with a bad phone in its summary, so the error shows while collapsed", () => {
+    const row = { key: "new-0", displayName: "", phone: "12", email: "" };
+    const html = renderToStaticMarkup(
+      h(ParticipantRow, { ...rowProps, row, stored: undefined, errors: { phone: "Enter a valid phone number" } }),
+    );
+    expect(html).toContain("Fix the phone or email");
+    expect(html).toContain(">Guest 1<");
+    expect(html).toMatch(/>Not saved</);
+  });
+
+  it("is read-only when finalized: no editing, no Save, but link actions stay", () => {
     const html = render(receipt({ status: "FINALIZED" }));
     expect(html).toContain("This receipt is finalized");
     expect(html).not.toMatch(/>Save</);
-    expect(html).not.toMatch(/>Remove</);
-    expect(html).not.toMatch(/>Add person</);
-    expect(html).toMatch(/<input[^>]*disabled=""[^>]*value="Maya"/);
+    expect(html).not.toMatch(/Add person/);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>.*Maya/);
     expect(html).toMatch(/>Create link</);
   });
 
-  it("asks an unsaved row to be saved before it can get a link", () => {
+  it("offers nothing to share for an unsaved row", () => {
     const html = renderToStaticMarkup(
-      h(PickLink, { rowKey: "new-0", stored: undefined, link: undefined, error: undefined, pending: false, onIssue: () => {}, merchantName: null }),
+      h(PickLink, { rowKey: "new-0", stored: undefined, link: undefined, error: undefined, pending: false, onIssue: noop, merchantName: null }),
     );
-    expect(html).toContain("Save to send a link.");
-    expect(html).not.toContain("<button");
+    expect(html).toBe("");
   });
 
   it("shows Text only with a phone, Email only with an email, and always Copy link", () => {
     const shown = (stored: SavedParticipant) =>
       renderToStaticMarkup(
-        h(PickLink, { rowKey: stored.id, stored, link: "http://x/p/tok", error: undefined, pending: false, onIssue: () => {}, merchantName: "Joe's Pizza" }),
+        h(PickLink, { rowKey: stored.id, stored, link: "http://x/p/tok", error: undefined, pending: false, onIssue: noop, merchantName: "Joe's Pizza" }),
       );
     const withPhone = shown(maya);
     expect(withPhone).toContain('value="http://x/p/tok"');

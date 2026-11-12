@@ -1,6 +1,6 @@
 "use client";
-// Roster editor and pick-link actions for the participants screen.
-// Spec: docs/specs/receipts/participants-screen.md.
+// Roster editor and pick-link actions for the participants screen: one compact
+// row per person, tap to edit. Spec: docs/specs/receipts/participants-screen.md.
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "../../../components/EmptyState";
@@ -13,10 +13,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "../../../components/ui/alert-dialog";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent } from "../../../components/ui/card";
+import { Card } from "../../../components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../components/ui/dropdown-menu";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { mailtoHref, pickLinkMessage, smsHref } from "../../../lib/pick-link-share";
@@ -26,6 +31,7 @@ import {
   type Row,
   type SavedParticipant,
   MAX_PARTICIPANTS,
+  contactSummary,
   fieldErrors,
   hasErrors,
   isDirty,
@@ -54,6 +60,7 @@ async function errorMessage(res: Response): Promise<string> {
 export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
   const [saved, setSaved] = useState(initial);
   const [rows, setRows] = useState<Row[]>(() => rowsFrom(initial.participants));
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [touched, setTouched] = useState<Touched>({});
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -97,6 +104,7 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
     if (rows.length >= MAX_PARTICIPANTS) return;
     const key = `new-${nextKey.current++}`;
     setRows((r) => [...r, { key, displayName: "", phone: "", email: "" }]);
+    setExpanded(key);
     setFocus({ kind: "name", key });
   }
 
@@ -106,12 +114,17 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
 
   function removeRow(key: string) {
     setRows((r) => r.filter((row) => row.key !== key));
+    if (expanded === key) setExpanded(null);
     setFocus({ kind: "add" });
   }
 
   async function save() {
     setShowAllErrors(true);
-    if (rows.some((row) => hasErrors(fieldErrors(row)))) return;
+    const firstBad = rows.find((row) => hasErrors(fieldErrors(row)));
+    if (firstBad) {
+      setExpanded(firstBad.key);
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -127,6 +140,7 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
       const next = toEditorReceipt(await res.json());
       setSaved(next);
       setRows(rowsFrom(next.participants));
+      setExpanded(null);
       setTouched({});
       setShowAllErrors(false);
       toast.success("Saved");
@@ -144,7 +158,7 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
 
   async function issueLink(participantId: string) {
     setLinkPending(participantId);
-    setLinkErrors(({ [participantId]: _, ...rest }) => rest);
+    setLinkErrors(({ [participantId]: _omit, ...rest }) => rest);
     try {
       const res = await fetch(`/api/receipts/${saved.id}/participants/${participantId}/pick-link`, {
         method: "POST",
@@ -190,51 +204,37 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
           />
         )
       ) : (
-        <ol className="space-y-4">
-          {rows.map((row, index) => (
-            <li key={row.key}>
-              <ParticipantCard
-                row={row}
-                index={index}
-                stored={row.id ? savedById.get(row.id) : undefined}
-                readOnly={readOnly}
-                errors={visibleErrors(row)}
-                onChange={(patch) => updateRow(row.key, patch)}
-                onBlur={(field) =>
-                  setTouched((t) => ({ ...t, [row.key]: { ...t[row.key], [field]: true } }))
-                }
-                onRemove={() => removeRow(row.key)}
-                link={row.id ? links[row.id] : undefined}
-                linkError={row.id ? linkErrors[row.id] : undefined}
-                linkPending={row.id !== undefined && linkPending === row.id}
-                onIssueLink={() => row.id && issueLink(row.id)}
-                merchantName={saved.merchantName}
-              />
-            </li>
-          ))}
-        </ol>
+        <Card className="gap-0 py-0">
+          <ul className="divide-y divide-line">
+            {rows.map((row, index) => (
+              <li key={row.key}>
+                <ParticipantRow
+                  row={row}
+                  index={index}
+                  stored={row.id ? savedById.get(row.id) : undefined}
+                  readOnly={readOnly}
+                  expanded={expanded === row.key}
+                  onToggle={() => setExpanded((k) => (k === row.key ? null : row.key))}
+                  errors={visibleErrors(row)}
+                  onChange={(patch) => updateRow(row.key, patch)}
+                  onBlur={(field) =>
+                    setTouched((t) => ({ ...t, [row.key]: { ...t[row.key], [field]: true } }))
+                  }
+                  onRemove={() => removeRow(row.key)}
+                  link={row.id ? links[row.id] : undefined}
+                  linkError={row.id ? linkErrors[row.id] : undefined}
+                  linkPending={row.id !== undefined && linkPending === row.id}
+                  onIssueLink={() => row.id && issueLink(row.id)}
+                  merchantName={saved.merchantName}
+                />
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       {!readOnly && (
-        <div className="space-y-4">
-          {rows.length > 0 && (
-            <div className="space-y-1">
-              <Button
-                id="add-person"
-                type="button"
-                variant="outline"
-                className="min-h-11 w-full md:w-auto"
-                onClick={addRow}
-                disabled={rows.length >= MAX_PARTICIPANTS}
-              >
-                Add person
-              </Button>
-              {rows.length >= MAX_PARTICIPANTS && (
-                <p className="text-sm text-ink-muted">A receipt can have up to {MAX_PARTICIPANTS} people.</p>
-              )}
-            </div>
-          )}
-
+        <div className="space-y-3">
           {saveError && (
             <div role="alert" className="space-y-2 rounded-md border border-destructive p-3 text-destructive">
               <p>{saveError.message}</p>
@@ -245,40 +245,41 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
               )}
             </div>
           )}
-
-          <Button
-            type="button"
-            className="min-h-11 w-full md:w-auto"
-            onClick={save}
-            disabled={!dirty || saving}
-          >
-            {saving ? "Saving…" : "Save"}
-          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {rows.length > 0 ? (
+              <Button
+                id="add-person"
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={addRow}
+                disabled={rows.length >= MAX_PARTICIPANTS}
+              >
+                + Add person
+              </Button>
+            ) : (
+              <span />
+            )}
+            <Button type="button" className="min-h-11 min-w-24" onClick={save} disabled={!dirty || saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+          {rows.length >= MAX_PARTICIPANTS && (
+            <p className="text-sm text-ink-muted">A receipt can have up to {MAX_PARTICIPANTS} people.</p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function ParticipantCard({
-  row,
-  index,
-  stored,
-  readOnly,
-  errors,
-  onChange,
-  onBlur,
-  onRemove,
-  link,
-  linkError,
-  linkPending,
-  onIssueLink,
-  merchantName,
-}: {
+type RowProps = {
   row: Row;
   index: number;
   stored: SavedParticipant | undefined;
   readOnly: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   errors: FieldErrors;
   onChange: (patch: Partial<Row>) => void;
   onBlur: (field: "phone" | "email") => void;
@@ -288,41 +289,84 @@ function ParticipantCard({
   linkPending: boolean;
   onIssueLink: () => void;
   merchantName: string | null;
-}) {
-  const label = row.displayName.trim() || placeholderName(index);
-  return (
-    <Card>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-semibold">{label}</h2>
-          {!readOnly && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="ghost" className="min-h-11 min-w-11">
-                  Remove
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove {label}?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {stored?.hasPickLink
-                      ? "Their pick link will stop working once you save."
-                      : "They'll be removed from this receipt once you save."}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
-                  <AlertDialogAction className="min-h-11" onClick={onRemove}>
-                    Remove
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
+};
 
-        <div className="grid gap-4 md:grid-cols-3">
+export function ParticipantRow({
+  row,
+  index,
+  stored,
+  readOnly,
+  expanded,
+  onToggle,
+  errors,
+  onChange,
+  onBlur,
+  onRemove,
+  link,
+  linkError,
+  linkPending,
+  onIssueLink,
+  merchantName,
+}: RowProps) {
+  const [dialog, setDialog] = useState<"remove" | "resend" | null>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const label = row.displayName.trim() || placeholderName(index);
+  const hasFieldError = hasErrors(errors);
+  const status = !stored ? "Not saved" : stored.hasPickLink ? "Link sent" : "No link";
+  const canResend = stored?.hasPickLink && !link;
+  const summary = hasFieldError ? "Fix the phone or email" : contactSummary(row);
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-default"
+          onClick={onToggle}
+          disabled={readOnly}
+          aria-expanded={readOnly ? undefined : expanded}
+          aria-controls={readOnly ? undefined : `${row.key}-fields`}
+        >
+          <span className="truncate font-semibold">{label}</span>
+          <span className={`truncate text-sm ${hasFieldError ? "text-destructive" : "text-ink-muted"}`}>{summary}</span>
+        </button>
+        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-ink-muted">{status}</span>
+        {(!readOnly || canResend) && (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                ref={menuButton}
+                type="button"
+                variant="ghost"
+                className="min-h-11 min-w-11 shrink-0"
+                aria-label={`More for ${label}`}
+              >
+                ⋯
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {!readOnly && (
+                <DropdownMenuItem className="min-h-11" onSelect={onToggle}>
+                  {expanded ? "Close" : "Edit"}
+                </DropdownMenuItem>
+              )}
+              {canResend && (
+                <DropdownMenuItem className="min-h-11" onSelect={() => setDialog("resend")}>
+                  Send new link
+                </DropdownMenuItem>
+              )}
+              {!readOnly && (
+                <DropdownMenuItem className="min-h-11" variant="destructive" onSelect={() => setDialog("remove")}>
+                  Remove
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      {expanded && !readOnly && (
+        <div id={`${row.key}-fields`} className="mt-3 grid gap-3 md:grid-cols-3">
           <Field id={`${row.key}-name`} label="Name">
             <Input
               id={`${row.key}-name`}
@@ -330,7 +374,6 @@ function ParticipantCard({
               value={row.displayName}
               placeholder={placeholderName(index)}
               maxLength={50}
-              disabled={readOnly}
               onChange={(e) => onChange({ displayName: e.target.value })}
             />
           </Field>
@@ -341,7 +384,6 @@ function ParticipantCard({
               type="tel"
               autoComplete="off"
               value={row.phone}
-              disabled={readOnly}
               aria-invalid={errors.phone ? true : undefined}
               aria-describedby={errors.phone ? `${row.key}-phone-error` : undefined}
               onChange={(e) => onChange({ phone: e.target.value })}
@@ -355,26 +397,76 @@ function ParticipantCard({
               type="email"
               autoComplete="off"
               value={row.email}
-              disabled={readOnly}
               aria-invalid={errors.email ? true : undefined}
               aria-describedby={errors.email ? `${row.key}-email-error` : undefined}
               onChange={(e) => onChange({ email: e.target.value })}
               onBlur={() => onBlur("email")}
             />
           </Field>
+          <div className="md:col-span-3">
+            <Button type="button" variant="outline" className="min-h-11" onClick={onToggle}>
+              Done
+            </Button>
+          </div>
         </div>
+      )}
 
-        <PickLink
-          rowKey={row.key}
-          stored={stored}
-          link={link}
-          error={linkError}
-          pending={linkPending}
-          onIssue={onIssueLink}
-          merchantName={merchantName}
-        />
-      </CardContent>
-    </Card>
+      <PickLink
+        rowKey={row.key}
+        stored={stored}
+        link={link}
+        error={linkError}
+        pending={linkPending}
+        onIssue={onIssueLink}
+        merchantName={merchantName}
+      />
+
+      <AlertDialog open={dialog === "remove"} onOpenChange={(open) => !open && setDialog(null)}>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            // Cancel returns to the menu button; after Remove the row is gone
+            // and the editor moves focus to Add person.
+            e.preventDefault();
+            menuButton.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {label}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {stored?.hasPickLink
+                ? "Their pick link will stop working once you save."
+                : "They'll be removed from this receipt once you save."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="min-h-11" onClick={onRemove}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={dialog === "resend"} onOpenChange={(open) => !open && setDialog(null)}>
+        <AlertDialogContent
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            menuButton.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send {label} a new link?</AlertDialogTitle>
+            <AlertDialogDescription>The link you sent before will stop working.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="min-h-11" onClick={onIssueLink}>
+              Make new link
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
@@ -402,6 +494,8 @@ function Field({
   );
 }
 
+// Link actions under a row. Shown only when there is something to do: create a
+// first link, or share one just made. Resending lives in the row's menu.
 export function PickLink({
   rowKey,
   stored,
@@ -419,10 +513,7 @@ export function PickLink({
   onIssue: () => void;
   merchantName: string | null;
 }) {
-  if (!stored) {
-    return <p className="text-sm text-ink-muted">Save to send a link.</p>;
-  }
-
+  if (!stored) return null;
   const linkFieldId = `${rowKey}-link`;
 
   async function copy(url: string) {
@@ -437,59 +528,44 @@ export function PickLink({
     }
   }
 
-  return (
-    <div className="space-y-2 border-t border-line pt-4">
-      {link ? (
-        <>
-          <Label htmlFor={linkFieldId}>Pick link</Label>
-          <Input id={linkFieldId} className="min-h-11" readOnly value={link} onFocus={(e) => e.target.select()} />
-          <p className="text-sm text-ink-muted">Shown once; sending again makes a new link.</p>
-          <div className="flex flex-wrap gap-2">
-            {stored.phone && (
-              <Button asChild variant="outline" className="min-h-11">
-                <a href={smsHref(stored.phone, pickLinkMessage(link, merchantName))}>Text</a>
-              </Button>
-            )}
-            {stored.email && (
-              <Button asChild variant="outline" className="min-h-11">
-                <a href={mailtoHref(stored.email, pickLinkMessage(link, merchantName))}>Email</a>
-              </Button>
-            )}
-            <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(link)}>
-              Copy link
+  let body: React.ReactNode = null;
+  if (link) {
+    body = (
+      <div className="space-y-2 rounded-md bg-muted p-3">
+        <Label htmlFor={linkFieldId}>Pick link</Label>
+        <Input id={linkFieldId} className="min-h-11 bg-background" readOnly value={link} onFocus={(e) => e.target.select()} />
+        <p className="text-sm text-ink-muted">Shown once; sending again makes a new link.</p>
+        <div className="flex flex-wrap gap-2">
+          {stored.phone && (
+            <Button asChild variant="outline" className="min-h-11">
+              <a href={smsHref(stored.phone, pickLinkMessage(link, merchantName))}>Text</a>
             </Button>
-          </div>
-        </>
-      ) : stored.hasPickLink ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-ink-muted">Link sent</p>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button type="button" variant="outline" className="min-h-11" disabled={pending}>
-                {pending ? "Making link…" : "Send new link"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Send {stored.displayName} a new link?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  The link you sent before will stop working.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
-                <AlertDialogAction className="min-h-11" onClick={onIssue}>
-                  Make new link
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          )}
+          {stored.email && (
+            <Button asChild variant="outline" className="min-h-11">
+              <a href={mailtoHref(stored.email, pickLinkMessage(link, merchantName))}>Email</a>
+            </Button>
+          )}
+          <Button type="button" variant="outline" className="min-h-11" onClick={() => copy(link)}>
+            Copy link
+          </Button>
         </div>
-      ) : (
-        <Button type="button" variant="outline" className="min-h-11" disabled={pending} onClick={onIssue}>
-          {pending ? "Making link…" : "Create link"}
-        </Button>
-      )}
+      </div>
+    );
+  } else if (!stored.hasPickLink) {
+    body = (
+      <Button type="button" variant="outline" className="min-h-11" disabled={pending} onClick={onIssue}>
+        {pending ? "Making link…" : "Create link"}
+      </Button>
+    );
+  } else if (pending) {
+    body = <p className="text-sm text-ink-muted">Making link…</p>;
+  }
+
+  if (!body && !error) return null;
+  return (
+    <div className="mt-2 space-y-2">
+      {body}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

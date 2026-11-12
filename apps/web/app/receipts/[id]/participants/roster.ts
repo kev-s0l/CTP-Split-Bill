@@ -83,6 +83,19 @@ export function fieldErrors(row: Pick<Row, "phone" | "email">): FieldErrors {
   return errors;
 }
 
+// "+12125550101" → "(212) 555-0101"; other numbers and unparsed input as typed.
+export function formatPhone(phone: string): string {
+  const normalized = normalizePhone(phone);
+  const us = normalized?.match(/^\+1(\d{3})(\d{3})(\d{4})$/);
+  return us ? `(${us[1]}) ${us[2]}-${us[3]}` : (normalized ?? phone.trim());
+}
+
+// The second line of a collapsed row: whichever contact details are filled in.
+export function contactSummary(row: Pick<Row, "phone" | "email">): string {
+  const parts = [row.phone.trim() && formatPhone(row.phone), row.email.trim()].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "No phone or email";
+}
+
 export function hasErrors(errors: FieldErrors): boolean {
   return errors.phone !== undefined || errors.email !== undefined;
 }

@@ -51,18 +51,26 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 
 ### Editing the roster
 
-- Each row has a name, phone and email field with visible labels. Blank names
-  show the placeholder the API will save ("Guest N" for the row's position).
-- **Add person** appends a blank row and focuses its name field. It is
-  disabled at 50 rows, with a note that 50 is the limit.
+- The roster is one list with a compact row per person. A collapsed row
+  shows the name (or "Guest N", the placeholder the API will save for that
+  position), a second line with the phone and email that are filled in (or
+  "No phone or email"), a link status (No link, Link sent, or Not saved for
+  a row that has never been saved), and a ⋯ menu.
+- Tapping the row, or Edit in its menu, expands it to Name, Phone and Email
+  fields with visible labels and a Done button. One row is expanded at a
+  time; opening another collapses the first. Edits stay in the draft either
+  way.
+- **+ Add person** appends a blank row, expanded, with its name field
+  focused. It is disabled at 50 rows, with a note that 50 is the limit.
 - Phone and email are validated on blur and on Save with `normalizePhone` and
   `normalizeEmail`. An invalid value shows the API's message under that field
   (`Enter a valid phone number`, `Enter a valid email address`) and blocks
-  Save.
-- **Remove** opens an `AlertDialog` naming the person. If they have a pick
-  link, the dialog says the link will stop working once saved. Confirming
-  removes the row from the draft and moves focus to Add person; cancelling or
-  Escape leaves it and returns focus to Remove.
+  Save. A collapsed row with an invalid value says "Fix the phone or email"
+  in place of its contact line, and Save expands the first such row.
+- **Remove**, in the row's menu, opens an `AlertDialog` naming the person. If
+  they have a pick link, the dialog says the link will stop working once
+  saved. Confirming removes the row from the draft and moves focus to Add
+  person; cancelling or Escape returns focus to the menu button.
 - Changes are a draft until **Save**, which sends the whole roster in display
   order with the revision the page loaded. Save is disabled while nothing has
   changed and while a save is in flight. Leaving the page with unsaved
@@ -83,11 +91,12 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 
 ### Pick links
 
-- Link actions appear only on saved rows; an unsaved row says "Save to send a
-  link".
-- A person with no link shows **Create link**. A person who already has one
-  shows "Link sent" and **Send new link**. Send new link first confirms in an
-  `AlertDialog` that the earlier link will stop working, then rotates it.
+- Link actions appear only on saved rows; an unsaved row's status reads
+  "Not saved".
+- A person with no link shows a **Create link** button under their row. A
+  person who already has one shows "Link sent", and their menu offers **Send
+  new link**, which first confirms in an `AlertDialog` that the earlier link
+  will stop working, then rotates it.
 - Creating or rotating returns the URL once. The row then shows it in a
   read-only field, and:
   - **Text**, when the saved phone is present: an `sms:` link to that phone
@@ -111,9 +120,10 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 ### Layout
 
 - Organizer page, desktop-first, meeting every rule in web.md's mobile
-  standard: at 375px each person is a stacked card with full-width fields and
-  actions, with no horizontal scroll; every button is at least 44×44px;
-  inputs render at 16px or larger.
+  standard: at 375px the rows and expanded fields are full width with no
+  horizontal scroll; every row, button and menu item is at least 44px tall;
+  inputs render at 16px or larger. At `md:` and up an expanded row's three
+  fields sit side by side.
 - Every action is reachable by keyboard. The remove and resend dialogs trap
   focus and close on Escape.
 
@@ -129,9 +139,11 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 | Remove Sam, confirm, Save; Sam is assigned the rice | Draft kept; API conflict message shown above Save |
 | Save from a tab opened before another save | "Receipt has changed; reload before saving" with Reload |
 | Maya (phone, no email): Create link | Text and Copy link shown; no Email |
-| Reload after creating Maya's link | "Link sent" with Send new link; no URL |
+| Reload after creating Maya's link | Status "Link sent"; Send new link in her menu; no URL |
 | Send new link, confirm | New URL shown; the old link returns 404 |
-| Unsaved new row | "Save to send a link"; no link actions |
+| Unsaved new row | Status "Not saved"; no link actions |
+| Alex with phone +12125550101, collapsed | "Alex", "(212) 555-0101", "No link", Create link |
+| Phone "12" on a collapsed row | "Fix the phone or email"; Save expands that row |
 | Finalized receipt | Roster read-only; link actions available |
 | 50 rows | Add person disabled with the limit note |
 | Foreign receipt id | Not-found page |
@@ -140,12 +152,14 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 
 - pnpm test (participants-screen.test.ts) covers the `sms:` and `mailto:`
   builders (encoding, missing phone or email, message with and without a
-  merchant), the roster-to-request mapping
+  merchant), phone formatting and the contact line, the roster-to-request
+  mapping
   (order kept, ids kept, blank fields sent so they clear), and static renders
-  of the empty, read-only and link-shown states.
+  of the empty, collapsed, expanded, invalid, read-only and link-shown
+  states.
 - pnpm typecheck and pnpm build pass.
 - Drill (pnpm dev, signed in): add three participants, save, remove one
-  through the confirm dialog, save, reload; the list matches.
+  through its menu and the confirm dialog, save, reload; the list matches.
 - Link drill: create a link, open it in a private window; it loads the guest
   page. Send new link; the old URL returns 404.
 - Phone drill: on a real phone, Text opens Messages and Email opens Mail with
