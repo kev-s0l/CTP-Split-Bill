@@ -46,7 +46,8 @@ instead of entering every value by hand, then reviews them before splitting.
 - Successful completion checks the same owner, receipt, PARSING state and
   attempt revision. In one transaction it replaces items, clears assignments
   and shared allocations, saves extracted fields, clears reviewedAt, records
-  SUCCEEDED and advances revision. Participants and the selected payer remain.
+  SUCCEEDED and advances revision. Participants and the selected payer remain;
+  every participant's picksSubmittedAt is cleared (receipts/guest-picks.md).
   Items are unverified; existing review and finalization checks still apply.
 - Success returns 200 with receipt detail and revalidates receipt/history
   caches. The response excludes raw extraction, blob names and parser errors.

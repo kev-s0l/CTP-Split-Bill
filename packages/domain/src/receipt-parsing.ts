@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { prisma } from "@project/db";
 import { ApiError } from "./errors";
-import { receiptDetail, ExpectedRevision } from "./receipt";
+import { presentReceipt, receiptDetail, ExpectedRevision } from "./receipt";
 import { receiptScope, requireReceiptUser } from "./receipt-access";
 
 // Starting and finishing an attempt each consume a PostgreSQL integer revision.
@@ -111,10 +111,12 @@ export async function completeReceiptParsing(userId: string, receiptId: string, 
     if (!completed.count) throw new ApiError("CONFLICT", "Parsing attempt has been superseded; reload the receipt", 409);
     await tx.sharedItemAllocation.deleteMany({ where: { receiptId, item: { receipt: scope } } });
     await tx.receiptItem.deleteMany({ where: { receiptId, receipt: scope } });
+    // Picks went with the old items, so nobody is done picking any more.
+    await tx.participant.updateMany({ where: { receiptId }, data: { picksSubmittedAt: null } });
     await tx.receiptItem.createMany({
       data: extracted.items.map((item, index) => ({ ...item, receiptId, lineNumber: index + 1, isVerified: false })),
     });
-    return tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail });
+    return presentReceipt(await tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail }));
   });
 }
 

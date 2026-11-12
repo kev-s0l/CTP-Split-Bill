@@ -45,7 +45,12 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | POST | /api/receipts/[id]/parse | ParseReceipt; local OCR into unreviewed draft items and fields | receipts/parse.md |
 | PATCH | /api/receipts/[id] | UpdateReceipt; corrections, split mode or review confirmation; receipt detail | receipts/edit.md |
 | PUT | /api/receipts/[id]/items | ReplaceItems with expectedRevision; full replacement clears assignments/sharing/review | receipts/items.md |
-| PUT | /api/receipts/[id]/participants | ReplaceParticipants with expectedRevision and participants: [{id?, displayName?, phone?}]; receipt detail | receipts/participants.md |
+| PUT | /api/receipts/[id]/participants | ReplaceParticipants with expectedRevision and participants: [{id?, displayName?, phone?, email?}]; receipt detail | receipts/participants.md |
+| POST | /api/receipts/[id]/participants/[participantId]/pick-link | Issue or rotate a participant's pick link; `{ url }`, shown once | receipts/guest-picks.md |
+| DELETE | /api/receipts/[id]/participants/[participantId]/pick-link | Revoke a participant's pick link; idempotent | receipts/guest-picks.md |
+| GET | /api/picks/[token] | Token-scoped projection: picking state on a draft, everyone's amounts once finalized | receipts/guest-picks.md |
+| PUT | /api/picks/[token] | ReplacePicks with itemIds; the holder's complete pick set; 409 once finalized | receipts/guest-picks.md |
+| POST | /api/picks/[token]/done | Mark the holder's picks submitted; idempotent; 409 once finalized | receipts/guest-picks.md |
 | PUT | /api/receipts/[id]/assignments | ReplaceAssignments with expectedRevision and assignments: [{itemId, participantId}]; receipt detail | bills/allocations.md |
 | PUT | /api/receipts/[id]/shared-allocations | ReplaceSharedAllocations with expectedRevision and allocations: [{itemId, participantIds}]; receipt detail | bills/allocations.md |
 | POST | /api/receipts/[id]/preview | ExpectedRevision; read-only participant allocations for the stored draft revision | bills/preview.md |
@@ -65,10 +70,7 @@ Party APIs, guest authentication and public share links are outside this API; gu
 receipt only through a pick link.
 
 Draft, pending review: totals on GET /api/receipts/[id]
-(receipts/totals-check.md); and, per ADR-0015, owner-scoped
-POST/DELETE /api/receipts/[id]/participants/[participantId]/pick-link plus the
-token-scoped GET/PUT /api/picks/[token] and POST /api/picks/[token]/done
-(receipts/guest-picks.md). None of these exist yet.
+(receipts/totals-check.md). It does not exist yet.
 
 ## Verify
 

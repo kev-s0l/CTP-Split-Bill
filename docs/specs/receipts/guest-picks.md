@@ -1,6 +1,5 @@
 ---
 type: feature
-status: draft
 ---
 # A guest with a pick link chooses the items they had, then sees the split
 
@@ -18,14 +17,19 @@ what to pay without an account or a second link.
   Participant.picksSubmittedAt, added by an append-only migration.
 - packages/domain/src/picks.ts: token issue/rotate/revoke, token lookup,
   ReplacePicks validation and the pick transaction.
-- packages/domain/src/receipt-access.ts: the existing revision lock, reused.
+- packages/domain/src/receipt-access.ts: lockReceiptForGuest, the guest
+  sibling of lockEditableReceipt. Same DRAFT and not-PARSING guard and the
+  same revision increment, but no owner and no expected revision.
+- packages/domain/src/receipt.ts and receipt-parsing.ts: item replacement and
+  parse completion clear every participant's picksSubmittedAt.
 - apps/web/app/api/receipts/[id]/participants/[participantId]/pick-link/route.ts:
   POST issues or rotates, DELETE revokes (owner-scoped).
 - apps/web/app/api/picks/[token]/route.ts: GET projection (pick or split),
   PUT picks.
 - apps/web/app/api/picks/[token]/done/route.ts: POST done.
 - apps/web/app/p/[token]/: the guest page, picking before finalize and the
-  split summary after.
+  split summary after (see Known gaps).
+- apps/web/tests/picks-route.test.ts.
 
 ## Behavior
 
@@ -34,8 +38,13 @@ what to pay without an account or a second link.
   participants, deleted receipts and parsing receipts return 404 `NOT_FOUND`,
   indistinguishable from each other. Tokens have no expiry.
 - Owner routes use the normal ritual: identity, owner check, 404 for foreign or
-  unknown receipts and participants. POST returns `{ url }` once; the raw token
-  is never readable again. DELETE clears the hash and picksSubmittedAt.
+  unknown receipts and participants. Both work on a receipt in any state, so
+  the owner can still rotate or revoke after finalize. POST returns
+  `{ url }` once, built from the request's origin as `<origin>/p/<token>`; the
+  raw token is never readable again. DELETE clears the hash and picksSubmittedAt, and is idempotent. Neither
+  changes the receipt revision, because receipt content is unchanged.
+- Removing a participant (receipts/participants.md) deletes their row, and
+  their hash with it, so their link 404s with no separate revoke.
 - The server sends no messages. The owner's screen turns the returned url into
   `sms:` and `mailto:` links pre-filled with the participant's stored phone or
   email (receipts/participants.md), plus a copy action. Sending again later
@@ -70,8 +79,9 @@ what to pay without an account or a second link.
   unchanged (same rule as bills/allocations.md).
 - POST done sets picksSubmittedAt to now; it is idempotent. A later PUT by the
   same holder clears it until they press done again.
-- The owner replacing items (receipts/items.md) clears every participant's
-  picksSubmittedAt, since their picks were cleared with the old items.
+- The owner replacing items (receipts/items.md) and a successful parse
+  (receipts/parse.md) each clear every participant's picksSubmittedAt, in the
+  same transaction, since their picks were cleared with the old items.
 - Receipt detail adds `hasPickLink` and `picksSubmittedAt` per participant
   for the owner's review screen. Readiness is derived there: a participant is
   ready when submitted, or when they have no link (the owner picks for them).
@@ -113,6 +123,11 @@ what to pay without an account or a second link.
   projection, 409 on writes after finalize, and that phones and emails never
   appear in token responses.
 - pnpm typecheck and pnpm build pass.
+- API drill (pnpm dev, signed in): POST the pick-link route for a seeded
+  participant; `curl /api/picks/<token>` with no cookie shows the projection
+  with no phone or email; PUT two item ids and POST done; the
+  owner's GET /api/receipts/[id] shows the assignments, `hasPickLink: true`
+  and a picksSubmittedAt. Rotate, and the old token's GET returns 404.
 - Drill: issue a link, open /p/<token> in a private window, pick items, then
   confirm the owner's receipt detail shows them and the participant is ready.
 - Phone drill: open /p/<token> at 375px wide (devtools or a real phone); pick
@@ -122,9 +137,27 @@ what to pay without an account or a second link.
   summary shows every participant's amount, PUT returns 409, and the page
   title shows no merchant or names.
 
+## Known gaps against this contract
+
+These statements above are contract, not yet fact. A PR that closes one
+deletes its line from this section.
+
+- **The guest page does not exist.** `apps/web/app/p/[token]/` is not built,
+  so the page metadata, `Referrer-Policy` and `X-Robots-Tag` headers, the
+  phone-first layout, and the private-window, phone and finalize drills are
+  not yet true. `apps/web/middleware.ts` also redirects signed-out page
+  requests to sign-in, so `/p/` must be exempted when the page lands.
+
 ## Constraints & decisions
 
 - Permitted by ADR-0015, which supersedes the earlier public share link.
+- Guest writes cannot use lockEditableReceipt, which requires an owner and an
+  expected revision; lockReceiptForGuest keeps the same row lock and revision
+  advance without either.
+- Issuing and revoking links leave the revision alone, so the owner can send
+  links mid-edit without their next save returning 409.
+- The link is built from the request origin because the app has no configured
+  public origin; a proxied deployment would add one.
 - One token per participant rather than per receipt, so a guest cannot pick
   for someone else and the owner can revoke one person.
 - One token for both phases instead of a separate share link, so there is one

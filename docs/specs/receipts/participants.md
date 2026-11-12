@@ -25,14 +25,14 @@ pick link.
   1–50 entries, in display order. Uses the owner/DRAFT/revision lock.
 - An entry with an id must be a participant of this receipt (404 otherwise)
   and keeps that id. An entry without an id is created. Existing participants
-  missing from the list are removed.The same id twice is 400.
+  missing from the list are removed. The same id twice is 400.
 - The saved order is the order sent (joinedAt is rewritten to match).
 - displayName is trimmed, 1–50 characters. Blank or missing becomes
   "Guest N", where N is the entry's 1-based position.
 - phone is optional. When present it is normalized to E.164 (US numbers may be
   entered without +1); anything that does not normalize returns 400 with
-  message `phone: Enter a valid phone number`. An empty string clears it; an ommitted phone keeps the stored one.
-  Phones dont need not to be unique.
+  message `phone: Enter a valid phone number`. An empty string clears it; an
+  omitted phone keeps the stored one. Phones need not be unique.
 - email is optional. When present it is trimmed and lowercased, at most 254
   characters, and must be a single address of the form local@domain;
   anything else returns 400 with message `email: Enter a valid email address`.
@@ -40,7 +40,8 @@ pick link.
   need not be unique.
 - Removing a participant that is the receipt's payer, or that has an
   assignment or shared allocation, returns 409 `CONFLICT`; the organizer
-  unassigns first. Removing one with a pick link revokes it, once pick links exist (receipts/guest-picks.md); today there are none to revoke.
+  unassigns first. Removing one with a pick link revokes it: the link's hash
+  is deleted with the row (receipts/guest-picks.md).
 - Changing names, phones or emails keeps reviewedAt; the revision advances.
 - Success returns receipt detail. Phones and emails appear only in owner
   responses (receipts/detail.md) and never in pick-link responses
@@ -63,8 +64,9 @@ pick link.
 
 ## Verify
 
-- pnpm test (participants-put-route.test.ts) covers default naming, trimming, phone and email normalization and
-  rejection, id retention, removal guards, rollback and stale revisions.
+- pnpm test (participants-put-route.test.ts) covers default naming, trimming,
+  phone and email normalization and rejection, id retention, removal guards,
+  removal revoking a pick link, rollback and stale revisions.
 - pnpm typecheck and pnpm build pass.
 
 ## Constraints & decisions

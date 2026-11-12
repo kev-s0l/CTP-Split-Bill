@@ -25,8 +25,11 @@ and inspect a finalized receipt without exposing internal parser/blob data.
 - GET returns id, ownerId, title, payer participant, business/parse/split state,
   revision, review/finalization timestamps, merchant/address/purchase date,
   currency, nullable amounts, creation/update times, participants and items.
-- Participants include id, displayName, phone and joinedAt, ordered by joinedAt
-  then id. This contact projection is organizer-only.
+- Participants include id, displayName, phone, email, joinedAt, hasPickLink
+  and picksSubmittedAt (null until the guest presses done), ordered by
+  joinedAt then id. This contact projection is organizer-only. hasPickLink is
+  derived from the stored hash; the hash itself is never returned
+  (receipts/guest-picks.md).
 - Items include lineNumber, nullable OCR fields, verification, individual
   assignee and shared participant references, ordered by lineNumber. Shared
   rows use participant joinedAt/id ordering.

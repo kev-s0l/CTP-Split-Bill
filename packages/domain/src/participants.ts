@@ -1,4 +1,4 @@
-// Draft roster writes: who is splitting a receipt, with optional phone numbers.
+// Draft roster writes: who is splitting a receipt, with optional phone or email.
 // Uses the same owner/DRAFT/revision lock as every other draft mutation.
 // See docs/specs/receipts/participants.md.
 
@@ -10,7 +10,7 @@ import {
   receiptScope,
   requireReceiptUser,
 } from "./receipt-access";
-import { ExpectedRevision, receiptDetail } from "./receipt";
+import { ExpectedRevision, presentReceipt, receiptDetail } from "./receipt";
 
 // US numbers may skip the +1; anything else must start with + and a country code.
 // The spec allows parentheses, spaces, and hyphens, but strips them out in the string.
@@ -22,6 +22,14 @@ export function normalizePhone(raw: string): string | null {
   return null;
 }
 
+// One address, local@domain, no spaces; trimmed and lowercased for storage.
+export function normalizeEmail(raw: string): string | null {
+  const email = raw.trim().toLowerCase();
+  if (email.length > 254) return null;
+  if (!/^[^\s@]+@[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
 // checks request body for 50 characters or less, no duplicate ids, and valid phone numbers.
 // Returns a normalized phone number or null.
 export const ReplaceParticipants = ExpectedRevision.extend({
@@ -31,6 +39,7 @@ export const ReplaceParticipants = ExpectedRevision.extend({
         id: z.string().min(1).max(64).optional(),
         displayName: z.string().max(200).optional(),
         phone: z.string().max(32).optional(),
+        email: z.string().max(320).optional(),
       }),
     )
     .min(1, "Add at least one person")
@@ -64,6 +73,17 @@ export const ReplaceParticipants = ExpectedRevision.extend({
         code: "custom",
         path: ["phone"],
         message: "Enter a valid phone number",
+      });
+    }
+    if (
+      p.email !== undefined &&
+      p.email.trim() !== "" &&
+      normalizeEmail(p.email) === null
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["email"],
+        message: "Enter a valid email address",
       });
     }
   });
@@ -140,15 +160,23 @@ export async function replaceReceiptParticipants(
           : p.phone.trim() === ""
             ? null
             : normalizePhone(p.phone);
-      const data = { displayName, phone, joinedAt: new Date(base + i) };
+      // Same rule for email: omitted keeps it, "" clears it.
+      const email =
+        p.email === undefined
+          ? undefined
+          : p.email.trim() === ""
+            ? null
+            : normalizeEmail(p.email);
+      const data = { displayName, phone, email, joinedAt: new Date(base + i) };
       if (p.id) await tx.participant.update({ where: { id: p.id }, data });
       else
         await tx.participant.create({
-          data: { receiptId, ...data, phone: phone ?? null },
+          data: { receiptId, ...data, phone: phone ?? null, email: email ?? null },
         });
     }
 
-    // Names and phones don't change what was reviewed, so reviewedAt is kept.
-    return tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail });
+    // Names, phones and emails don't change what was reviewed, so reviewedAt is kept.
+    // Removed participants' pick-token hashes went with their rows: the link is revoked.
+    return presentReceipt(await tx.receipt.findFirstOrThrow({ where: scope, select: receiptDetail }));
   });
 }

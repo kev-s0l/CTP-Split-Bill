@@ -28,7 +28,8 @@ removing assignments that would otherwise point to changed charges.
   receipts 404; finalized, parsing or stale writes 409.
 - One receipt-locked transaction deletes shared allocations and old items,
   inserts verified corrected items with generated IDs, clears reviewedAt and
-  returns receipt detail at the new revision.
+  every participant's picksSubmittedAt (receipts/guest-picks.md), and returns
+  receipt detail at the new revision.
 - Individual assignments disappear with old items. New items have no assignee
   or shared allocations. Summary amounts and mode remain unchanged.
 - Insert failures restore old items, allocations and revision. Concurrent
