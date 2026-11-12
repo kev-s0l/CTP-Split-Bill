@@ -61,18 +61,19 @@ Every route handler and Server Action, in order:
 
 ## Dev server and bundler
 
-- `pnpm dev` runs `next dev` with webpack, the same bundler `next build`
-  uses. Turbopack is not used: it statically resolves the OCR adapter's
-  runtime-computed `fork()` path in `packages/services/src/ocr.ts` against
-  `apps/web` and fails to compile every route that imports
-  `@project/services`.
+- `pnpm dev` runs `next dev --turbopack`; `next build` uses webpack. Code in
+  any package the web app imports must compile under both.
+- Turbopack treats a `fork()` argument it can partly evaluate as a module
+  reference and resolves it at build time. The OCR adapter
+  (`packages/services/src/ocr.ts`) computes its worker path at runtime, so it
+  starts the worker through `forkWorker(file, options)`, where the path is a
+  plain parameter. Calling `fork()` directly on a path containing a constant
+  suffix fails every route that imports `@project/services` in dev.
+  `/* turbopackIgnore: true */` does not prevent this. See
+  [the postmortem](../postmortems/2026-11-receipt-dev-compilation.md).
 - The parse route's build trace (`outputFileTracingIncludes` in
   `apps/web/next.config.ts`) carries `ocr-worker.cjs`, `pnpm-workspace.yaml`
   and the Tesseract packages, so the forked worker exists at runtime.
-- Re-enabling Turbopack — including through a Next.js upgrade that makes it
-  the default — first requires keeping the worker path out of its static
-  analysis. See
-  [the postmortem](../postmortems/2026-11-receipt-dev-compilation.md).
 
 ## Verify
 

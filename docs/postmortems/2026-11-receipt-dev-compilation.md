@@ -50,10 +50,18 @@ development failure which a successful production build did not detect.
 
 ## The fix
 
-Change `apps/web/package.json`'s development script from
-`next dev --turbopack` to `next dev`. For the pinned Next.js 15.5.21 version,
-this uses webpack for development as well as the existing production build,
-avoiding the failing Turbopack analysis of the OCR worker path.
+`recognizeReceipt` now starts the worker through a small `forkWorker(file,
+options)` helper in `packages/services/src/ocr.ts`. Inside the helper, the
+`fork()` argument is a plain parameter, so Turbopack has no partly constant
+path to resolve and leaves it to runtime. The worker path is still computed at
+runtime from the workspace root, exactly as before, and the dev server keeps
+`next dev --turbopack`.
+
+Two other approaches were tried first. A `/* turbopackIgnore: true */`
+comment on the `fork()` argument had no effect on Next.js 15.5.21: the route
+still failed with the same resolution error. Switching the dev script to
+webpack (`next dev`) worked, but only by not running Turbopack, and a Next.js
+upgrade that makes Turbopack the default would have brought the failure back.
 
 ## Why our defenses missed it
 
@@ -68,19 +76,32 @@ workflow against the development server.
 
 ## What changed beyond the fix
 
-The web spec now documents the development bundler choice, the parse
-route's worker trace, and what re-enabling Turbopack requires, and its Verify
-section gains a development-server receipt drill and a build-trace check.
-`apps/web/README.md` no longer says the dev server uses Turbopack. No
-automated regression test or test configuration change was added.
+The web spec now documents the worker-path constraint and the parse route's
+worker trace, and its Verify section gains a development-server receipt drill
+and a build-trace check. `apps/web/README.md` explains why the worker is
+started through the helper. No automated regression test was added: the
+failure only appears when the Next.js dev bundler compiles a route, which
+Vitest does not do, so the dev-server drill is the defense.
 
-The fix is the stopgap: `packages/services/src/index.ts` still re-exports the
-OCR adapter, so any route importing `@project/services` still carries the
-`fork()` call. A Next.js upgrade that makes Turbopack the default for
-`next dev` would bring the failure back unless the worker path is first kept
-out of Turbopack's analysis.
+`packages/services/src/index.ts` still re-exports the OCR adapter, so every
+route importing `@project/services` still includes `ocr.ts`. That is harmless
+now that the `fork()` call compiles; narrowing the export is a separate
+change.
 
-The developer supplied the following results after changing the dev script:
+Verification of the helper fix, on the fix branch:
+
+| Check | Observed result |
+|---|---|
+| `next dev --turbopack`, signed-out `GET /api/receipts` | 401 `UNAUTHENTICATED` (500 with the resolution error before the fix) |
+| `next dev --turbopack`, signed-out `POST /api/receipts/<id>/parse` | 401 `UNAUTHENTICATED` |
+| Temporary route calling `recognizeReceipt` on `apps/web/tests/fixtures/receipt-ocr.png`, under `next dev --turbopack` and under webpack `next dev` | 200 with the fixture's full text (Soup 10.00, Tea 3.00, Total 16.00) in both; the route was removed afterwards |
+| `RECEIPT_OCR_DRILL=1` real OCR drill | Passed |
+| `pnpm test` | Passed: domain 42, services 35, web 329 (two opt-in drills skipped) |
+| `pnpm typecheck`, `pnpm build` | Passed |
+| Parse route build trace | Lists `ocr-worker.cjs`, `pnpm-workspace.yaml`, 160 `tesseract.js` and 44 `tesseract.js-core` files |
+
+The developer supplied the following results earlier, with the dev script
+switched to webpack (the first approach):
 
 | Check | Observed result |
 |---|---|
@@ -95,27 +116,15 @@ The developer supplied the following results after changing the dev script:
 | `pnpm --dir apps/web exec vitest run --maxWorkers=1` | 329 web tests passed; two opt-in drills skipped |
 
 The parsing response body was not supplied, so extracted values and persisted
-results were not independently inspected in this investigation. A
-production-runtime parse was not checked. The two opt-in Vitest drills were
-not run; the live upload and parse requests above are separate manual
-evidence.
+results were not independently inspected in that run. A production-runtime
+parse (`next start`) has not been checked with either approach.
 
-Review re-ran both sides of the fix on the same code. With
-`next dev --turbopack`, a signed-out `GET /api/receipts` returned 500 and the
-log showed `Module not found: Can't resolve
-'.../apps/web/packages/services/src/ocr-worker.cjs'`; with `next dev` it
-returned 401 with `{"error":{"code":"UNAUTHENTICATED",...}}`. After
-`pnpm build` on the fix branch, the parse route's trace
-(`.next/server/app/api/receipts/[id]/parse/route.js.nft.json`) listed
-`packages/services/src/ocr-worker.cjs`, `pnpm-workspace.yaml`, 160
-`tesseract.js` files and 44 `tesseract.js-core` files; the listing and image
-routes' traces did not include the worker.
-
-The default test command still failed after stopping the development server.
-Passing both the isolated migration tests and the full web suite with one
-worker supports resource contention during PGlite setup as an explanation,
-but does not prove its precise cause. Default parallel-test reliability
-remains unresolved and is separate from the receipt compilation fix.
+On the developer's machine the default test command failed on a 10-second
+migration-test setup timeout, even with the development server stopped;
+passing both the isolated migration tests and the single-worker suite points
+to resource contention during PGlite setup, but its precise cause is
+unconfirmed. The default `pnpm test` passed on the reviewer's machine. This is
+separate from the receipt compilation fix.
 
 Other errors encountered during verification had distinct causes: Auth.js
 reported `MissingSecret` until local authentication was configured; a literal
