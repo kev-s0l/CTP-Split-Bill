@@ -248,7 +248,7 @@ component.
 `CardTitle` inside the header; optional `status` (`ReactNode`) beside the
 title in the header; `paidTo` / `partyCount` / `total` in
 `CardContent` as a description list labelled `Paid to`, `People`, and
-`You owe` (total emphasised); and `date` in a `CardFooter` with a top divider
+`Total` (emphasised); and `date` in a `CardFooter` with a top divider
 and small muted text, behind the literal label `Date Created:`.
 
 Its display props map to data the caller must assemble and format:

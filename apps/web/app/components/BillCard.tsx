@@ -27,7 +27,7 @@ export function BillCard({ restaurant, paidTo, partyCount, total, date, status }
                     <dd>{paidTo}</dd>
                     <dt className="text-ink-muted">People</dt>
                     <dd>{partyCount}</dd>
-                    <dt className="text-ink-muted">You owe</dt>
+                    <dt className="text-ink-muted">Total</dt>
                     <dd className="text-lg font-semibold tabular-nums">{total}</dd>
                 </dl>
             </CardContent>

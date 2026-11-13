@@ -44,9 +44,13 @@ that is still in progress.
   total and date before passing them to `BillCard`; the component receives
   display-ready strings. The page shows a `Badge` for Paid, Unpaid, or a draft
   state when `settled` is null, plus a primary New receipt action.
-- The page uses the shared shell's loading, empty and error states. The empty
-  state offers the New receipt action. A failed request uses the shared error
-  presentation and retry behavior documented in web.md.
+- The page uses the shared shell's loading, empty and error states:
+  `LoadingState` while the list loads, `EmptyState` with the New receipt
+  action when there are no receipts, and the root error boundary
+  (`app/error.tsx`) when the read fails.
+- `/` stays public (auth/sign-in.md). A signed-out visitor sees a short
+  landing with a Sign in link to `/login`; the summary query never runs for
+  them.
 - Missing session identity returns 401. An unknown current user returns 401.
   Unexpected failures return the standard generic 500. Errors use
   `{ error: { code, message } }`; raw errors are not returned.
@@ -59,7 +63,8 @@ that is still in progress.
 | Finalized, three participants, all bills settled | `participantCount: 3`, `settled: true` | Paid |
 | Finalized, one bill outstanding | `settled: false` | Unpaid |
 | No owned, non-deleted receipts | Empty array | Empty state with New receipt action |
-| Signed-out request | 401 error envelope | Signed-in experience is unavailable |
+| Signed-out request to the endpoint | 401 error envelope | — |
+| Signed-out visitor opens `/` | — | Landing with a Sign in link; no error |
 
 ## Verify
 
@@ -70,6 +75,7 @@ that is still in progress.
 - Component tests cover the optional BillCard status slot and verify raw API
   money/date values are formatted before formatted strings reach the card.
 - Run `pnpm typecheck` and `pnpm build`.
+- Open `/` signed out: the landing shows with a Sign in link, not an error.
 - Complete the phone pass in web.md for the home screen, cards, badge and New
   receipt action.
 - The component spec no longer lists the missing home-screen `BillCard` use as
