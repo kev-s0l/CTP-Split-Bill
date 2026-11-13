@@ -2,7 +2,9 @@
 // builders, roster logic, and static renders of its states. No DOM, no database.
 import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+// The editor refreshes the router after a save; static renders have no app router.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 import { mailtoHref, pickLinkMessage, smsHref } from "../app/lib/pick-link-share";
 import { ParticipantRow, ParticipantsEditor, PickLink } from "../app/receipts/[id]/participants/ParticipantsEditor";
 import { installLeaveGuard } from "../app/receipts/[id]/participants/leave-guard";

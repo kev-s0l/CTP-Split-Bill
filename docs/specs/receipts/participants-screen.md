@@ -46,6 +46,9 @@ items (receipts/guest-picks.md) without the app sending anything itself.
   itself does the same if the session ends after the middleware check. A
   foreign, unknown or deleted receipt renders
   the not-found page, never a permission message.
+- The page is the People step: it runs the step guard first, so before the
+  items are reviewed it redirects to the furthest available step
+  (receipts/flow.md, "Gating"). Saving the roster refreshes the step bar.
 - While the receipt loads, the roster section shows `LoadingState`. A failed
   read shows `ErrorState`; "Try again" refetches.
 - A receipt with no participants shows `EmptyState` titled "No one's on this

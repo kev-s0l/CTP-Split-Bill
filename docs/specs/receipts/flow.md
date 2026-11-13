@@ -24,7 +24,9 @@ that isn't ready can't be reached, by button or by URL.
 - apps/web/app/receipts/[id]/StepBar.tsx: client step bar. Uses `usePathname`
   for the current step; takes step states as props.
 - apps/web/app/receipts/[id]/{scan,items,participants,picks,finalize}/page.tsx:
-  the step pages. Each one calls the step guard before rendering.
+  the step pages. Each one calls the step guard before rendering. A step
+  whose screen isn't built yet renders a placeholder that runs the guard and
+  says the screen is coming.
 - apps/web/app/receipts/[id]/step-guard.ts: `requireStep(receipt, step)`,
   which redirects when the step isn't available.
 - packages/domain/src/steps.ts: `receiptSteps(detail)`, pure, with no database
@@ -63,12 +65,15 @@ step's state from receipt detail; no progress is stored.
 
 | Step | Route | Available when | Done when |
 |---|---|---|---|
-| Scan | `scan` | always | parse status is SUCCEEDED, or FAILED and the organizer chose to enter it manually |
+| Scan | `scan` | always | parse status is SUCCEEDED, or FAILED and `reviewedAt` is set |
 | Items | `items` | parse status is not NOT_STARTED or PARSING | `reviewedAt` is set |
 | People | `participants` | Items is done | at least one saved participant besides the organizer |
 | Picks | `picks` | People is done | every item is covered for the split mode (below) |
 | Finalize | `finalize` | Picks is done | the receipt is FINALIZED |
 
+- After a FAILED scan, Items is available before Scan is done, so the
+  organizer can enter the items by hand. The Scan page shows the failure and
+  links to Items; once the items are reviewed, Scan shows as done.
 - Picks coverage follows bills/split-allocation.md: EVEN needs no
   assignments; ITEMIZED needs one assignee per item; SHARED_ITEMS needs one
   assignee or at least two shared participants per item.
@@ -93,7 +98,8 @@ step's state from receipt detail; no progress is stored.
 ### Mode chip and banners
 
 - Next to the step bar, a chip shows the receipt's picking mode: "Editing" or
-  "Picking open" (docs/adr/0017-group-pick-link.md).
+  "Picking open" (docs/adr/0017-group-pick-link.md). A finalized receipt
+  shows no chip.
 - While picking is open, the Items and People pages render read-only, with a
   banner "Picking is open. Pause it to make changes." and a **Pause picking**
   button. Pick-link actions on People stay available.
@@ -107,8 +113,11 @@ step's state from receipt detail; no progress is stored.
 - Done and current steps are links. A locked step is plain text with
   `aria-disabled="true"`, never a link.
 - When the next step is locked, **Next** is disabled and says why under it:
-  "Review the items first", "Add someone besides you", "Assign every item".
+  "Wait for the scan to finish", "Review the items first", "Add someone
+  besides you", "Assign every item".
 - The current step has `aria-current="step"`.
+- A step screen that saves something the step rules read refreshes the
+  layout, so the bar updates without a reload.
 - The bar meets web.md's mobile standard: 44px targets, no horizontal scroll
   at 375px, and every control reachable by keyboard.
 
@@ -118,6 +127,8 @@ step's state from receipt detail; no progress is stored.
 |---|---|
 | New receipt, parse in progress, open `/receipts/[id]/finalize` | 307 to `/receipts/[id]/scan` |
 | Parse succeeded, not reviewed, open `/receipts/[id]` | 307 to `/receipts/[id]/items` |
+| Parse failed, not reviewed, open `/receipts/[id]` | 307 to `/receipts/[id]/scan`; Items is available from there |
+| Parse failed, items entered by hand and reviewed | Scan and Items show as done |
 | Reviewed, roster is only the organizer | People current; Picks locked; Next says "Add someone besides you" |
 | ITEMIZED, one item unassigned | Picks current; Finalize locked |
 | EVEN, reviewed, two participants | Picks done; Finalize current |
@@ -146,6 +157,12 @@ step's state from receipt detail; no progress is stored.
   model.
 - Gating is on the server, in each step page, so a URL can't skip a step. The
   bar's disabled states are a convenience on top of that, not the guard.
+- A failed scan counts as done once the items are reviewed, rather than
+  when the organizer picks "enter by hand", because that choice would have
+  to be stored and progress is derived.
+- Placeholder step pages let the bar, the guard and the redirects work end
+  to end before every screen exists; each screen's PR replaces its
+  placeholder.
 - The participants route keeps its existing `participants` segment; the step
   is labeled "People" in the bar.
 - `receiptSteps` lives in the domain package with no database import so the

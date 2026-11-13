@@ -1,6 +1,7 @@
 "use client";
 // Roster editor and pick-link actions for the participants screen: one compact
 // row per person, tap to edit. Spec: docs/specs/receipts/participants-screen.md.
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "../../../components/EmptyState";
@@ -60,6 +61,7 @@ async function errorMessage(res: Response): Promise<string> {
 }
 
 export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
+  const router = useRouter();
   const [saved, setSaved] = useState(initial);
   const [rows, setRows] = useState<Row[]>(() => rowsFrom(initial.participants));
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -151,6 +153,8 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
       setTouched({});
       setShowAllErrors(false);
       toast.success("Saved");
+      // Re-reads the layout so the step bar reflects the saved roster.
+      router.refresh();
     } catch {
       setSaveError({ message: NETWORK_ERROR, conflict: false });
     } finally {
