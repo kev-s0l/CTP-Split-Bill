@@ -17,7 +17,8 @@ query plan or a currency decision into whatever screen renders it next.
 
 - `apps/web/app/components/ui/` — **layer 1**, shadcn primitives: `card.tsx`
   (`Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`,
-  `CardContent`, `CardFooter`) and `button.tsx` (`Button`, `buttonVariants`).
+  `CardContent`, `CardFooter`), `button.tsx` (`Button`, `buttonVariants`),
+  and `badge.tsx` (`Badge`, `badgeVariants`).
 - `apps/web/app/components/` (outside `ui/`) — **layer 2**, domain
   components: `BillCard.tsx`.
 - `apps/web/app/lib/cn.ts` — `cn()`, the `clsx` + `tailwind-merge` helper
@@ -168,24 +169,26 @@ It is a server-compatible component; the handler lives in its caller.
 
 ## The composition
 
-`BillCard` renders one bill's summary into the card slots: `restaurant` in
-`CardTitle` inside the header; `paidTo` / `partyCount` / `total` in
+`BillCard` renders one receipt summary into the card slots: `restaurant` in
+`CardTitle` inside the header; optional `status` (`ReactNode`) beside the
+title in the header; `paidTo` / `partyCount` / `total` in
 `CardContent` as a description list labelled `Paid to`, `People`, and
 `You owe` (total emphasised); and `date` in a `CardFooter` with a top divider
 and small muted text, behind the literal label `Date Created:`.
 
-Its five props map to data the caller must assemble and format:
+Its display props map to data the caller must assemble and format:
 
 | Prop | Source | Caller's job |
 |---|---|---|
 | `restaurant` | `Receipt.merchantName` (nullable) | supply a fallback — the prop is `string`, not `string \| null` |
 | `paidTo` | `Receipt.paidByParticipantId` → `Participant.displayName` (payer nullable) | resolve the receipt-local participant and supply a fallback |
 | `partyCount` | count of participants billed on the receipt | count it in the query, not in the component |
-| `total` | `Bill.amountOwed`, a `Decimal` serialized as a string | format for display — the prop is `string` |
-| `date` | `Bill.createdAt` or `Receipt.purchasedAt`, a `DateTime` | format for display |
+| `status` | receipt status and aggregate bill settlement | caller supplies a status Badge; omit when settlement is not applicable |
+| `total` | `Receipt.total`, a `Decimal` serialized as a string | format for display — the prop is `string` |
+| `date` | `Receipt.createdAt`, an ISO string | format for display |
 
-`BillCard` presents a bill; it does not decide which bills exist or who may
-see one. That scoping is [bill breakdowns](bills/list.md), and the loading,
+`BillCard` presents a receipt summary; it does not decide which receipts exist
+or who may see one. That scoping is [the bills list screen](bills/list-screen.md), and the loading,
 empty, and error states around a list of these cards are the async-honesty
 standard in [web](web.md) — owned by the screen, not by the card.
 
@@ -198,14 +201,9 @@ standard in [web](web.md) — owned by the screen, not by the card.
 | The token set, the shadcn alias table, dark-mode behavior | Per-screen layout beyond the shell's content column |
 | How primitives are added and owned | Each primitive's internal markup — that is the generated file |
 
-## Known gaps against this contract
-
-One statement above is contract, not yet fact. A PR that closes it deletes
-its line from this section.
-
-- **No screen imports `BillCard`.** `apps/web/app/page.tsx` is still the
-  starter skeleton, so nothing yet maps `Bill` rows to the five display
-  props.
+The home screen maps summary results to `BillCard` through
+`toBillCardProps` in `apps/web/app/lib/format.ts`; that mapping formats raw
+money and date values before they reach the presenter.
 
 ## Verify
 
@@ -224,10 +222,10 @@ its line from this section.
 - `apps/web/tests/components.test.ts` renders to static markup with literal
   props: `Card`'s slots appear in the order given (fails if `Card` stops
   rendering `children`), `Card` styles through the aliased tokens
-  (`bg-card`, `text-card-foreground`), and `BillCard` renders its display
-  strings untouched.
+  (`bg-card`, `text-card-foreground`), and `BillCard` renders its formatted
+  display strings and optional status slot untouched.
 - Visual pass: `pnpm dev`, open `/` in light and dark OS themes — the header,
-  canvas, and starter panel use the token colors in both.
+  canvas, receipt cards, badges and actions use the token colors in both.
 
 ## Key ADRs
 

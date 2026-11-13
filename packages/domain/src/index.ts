@@ -9,4 +9,5 @@ export * from "./user";
 export * from "./participants";
 export * from "./receipt-parsing";
 export * from "./picks";
+export * from "./receipt-summaries";
 // export * from "./members";

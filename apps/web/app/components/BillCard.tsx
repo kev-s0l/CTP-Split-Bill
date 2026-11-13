@@ -1,18 +1,24 @@
+import type { ReactNode } from "react";
 import { Card, CardHeader, CardContent, CardFooter, CardTitle } from "./ui/card";
 
-type BillCardProps = {
+export type BillCardProps = {
     restaurant: string;
     paidTo: string;
     partyCount: number;
     total: string;
     date: string;
+    status?: ReactNode;
 }
 
-export function BillCard({ restaurant, paidTo, partyCount, total, date }: BillCardProps){
+
+export function BillCard({ restaurant, paidTo, partyCount, total, date, status }: BillCardProps){
     return(
         <Card>
             <CardHeader>
-                <CardTitle>{restaurant}</CardTitle>
+                <div className="flex items-start justify-between gap-3">
+                    <CardTitle>{restaurant}</CardTitle>
+                    {status}
+                </div>
             </CardHeader>
 
             <CardContent>

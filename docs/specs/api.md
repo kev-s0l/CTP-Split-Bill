@@ -39,6 +39,7 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | GET | /api/health | 200 process/DB health; 503 when DB is unavailable | web.md |
 | GET | /api/me | Session user's id, name, email, image and phone; private, uncached response | auth/profile.md |
 | GET | /api/receipts | Owned, non-deleted receipt history, newest first | receipts/detail.md |
+| GET | /api/receipts/summary | Owned receipt summaries for the home list, including drafts and settlement state | bills/list-screen.md |
 | POST | /api/receipts | One multipart file; 201 owned draft and Location; JPEG/PNG/WebP up to 5 MiB | receipts/upload.md |
 | GET | /api/receipts/[id] | Owned receipt, revision, parsing/review state, participants, ordered items and allocations | receipts/detail.md |
 | GET | /api/receipts/[id]/image | Private original photo bytes after owner authorization | receipts/image.md |
