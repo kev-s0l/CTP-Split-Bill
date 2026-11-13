@@ -31,6 +31,7 @@ import {
   type Row,
   type SavedParticipant,
   MAX_PARTICIPANTS,
+  canSave,
   contactSummary,
   fieldErrors,
   hasErrors,
@@ -41,6 +42,7 @@ import {
   rowsFrom,
   toEditorReceipt,
 } from "./roster";
+import { installLeaveGuard } from "./leave-guard";
 
 const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again.";
 
@@ -67,10 +69,11 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
   const [saveError, setSaveError] = useState<SaveError | null>(null);
   const [links, setLinks] = useState<Record<string, string>>({});
   const [linkErrors, setLinkErrors] = useState<Record<string, string>>({});
-  const [linkPending, setLinkPending] = useState<string | null>(null);
+  // Per participant, so one finished request never re-enables another row.
+  const [linkPending, setLinkPending] = useState<ReadonlySet<string>>(() => new Set());
   const [focus, setFocus] = useState<Focus>(null);
   const nextKey = useRef(0);
-  const allowLeave = useRef(false);
+  const removeLeaveGuard = useRef<(() => void) | null>(null);
 
   const readOnly = isReadOnly(saved);
   const dirty = isDirty(rows, saved.participants);
@@ -78,18 +81,22 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
 
   useEffect(() => {
     if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => {
-      if (allowLeave.current) return;
-      e.preventDefault();
+    const remove = installLeaveGuard(window, (message) => window.confirm(message));
+    removeLeaveGuard.current = remove;
+    return () => {
+      remove();
+      removeLeaveGuard.current = null;
     };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
   useEffect(() => {
     if (!focus) return;
-    const id = focus.kind === "name" ? `${focus.key}-name` : "add-person";
-    document.getElementById(id)?.focus();
+    // With the last row removed, Add person lives in the empty state.
+    const target =
+      focus.kind === "name"
+        ? document.getElementById(`${focus.key}-name`)
+        : (document.getElementById("add-person") ?? document.querySelector<HTMLElement>("#roster-empty button"));
+    target?.focus();
     setFocus(null);
   }, [focus]);
 
@@ -152,12 +159,13 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
   }
 
   function reload() {
-    allowLeave.current = true;
+    removeLeaveGuard.current?.();
     window.location.reload();
   }
 
   async function issueLink(participantId: string) {
-    setLinkPending(participantId);
+    if (linkPending.has(participantId)) return;
+    setLinkPending((s) => new Set(s).add(participantId));
     setLinkErrors(({ [participantId]: _omit, ...rest }) => rest);
     try {
       const res = await fetch(`/api/receipts/${saved.id}/participants/${participantId}/pick-link`, {
@@ -177,7 +185,11 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
     } catch {
       setLinkErrors((e) => ({ ...e, [participantId]: NETWORK_ERROR }));
     } finally {
-      setLinkPending(null);
+      setLinkPending((s) => {
+        const next = new Set(s);
+        next.delete(participantId);
+        return next;
+      });
     }
   }
 
@@ -188,20 +200,24 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
         ? "This receipt is still being scanned. You can edit people once it finishes."
         : null;
 
+  // A disabled fieldset locks every field and button while a save is in
+  // flight, so nothing typed then is overwritten by the saved response.
   return (
-    <div className="space-y-4">
+    <fieldset disabled={saving} aria-busy={saving} className="m-0 min-w-0 space-y-4 border-0 p-0">
       {readOnly && readOnlyNote && <p className="text-ink-muted">{readOnlyNote}</p>}
 
       {rows.length === 0 ? (
         readOnly ? (
           <p className="text-ink-muted">No one&apos;s on this receipt yet.</p>
         ) : (
-          <EmptyState
-            title="No one's on this receipt yet"
-            message="Add the people splitting it. Names can wait; everyone starts as a guest."
-            actionLabel="Add person"
-            onAction={addRow}
-          />
+          <div id="roster-empty">
+            <EmptyState
+              title="No one's on this receipt yet"
+              message="Add the people splitting it. Names can wait; everyone starts as a guest."
+              actionLabel="Add person"
+              onAction={addRow}
+            />
+          </div>
         )
       ) : (
         <Card className="gap-0 py-0">
@@ -223,7 +239,7 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
                   onRemove={() => removeRow(row.key)}
                   link={row.id ? links[row.id] : undefined}
                   linkError={row.id ? linkErrors[row.id] : undefined}
-                  linkPending={row.id !== undefined && linkPending === row.id}
+                  linkPending={row.id !== undefined && linkPending.has(row.id)}
                   onIssueLink={() => row.id && issueLink(row.id)}
                   merchantName={saved.merchantName}
                 />
@@ -260,7 +276,7 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
             ) : (
               <span />
             )}
-            <Button type="button" className="min-h-11 min-w-24" onClick={save} disabled={!dirty || saving}>
+            <Button type="button" className="min-h-11 min-w-24" onClick={save} disabled={!canSave(rows, dirty, saving)}>
               {saving ? "Saving…" : "Save"}
             </Button>
           </div>
@@ -269,7 +285,7 @@ export function ParticipantsEditor({ initial }: { initial: EditorReceipt }) {
           )}
         </div>
       )}
-    </div>
+    </fieldset>
   );
 }
 
@@ -313,7 +329,7 @@ export function ParticipantRow({
   const label = row.displayName.trim() || placeholderName(index);
   const hasFieldError = hasErrors(errors);
   const status = !stored ? "Not saved" : stored.hasPickLink ? "Link sent" : "No link";
-  const canResend = stored?.hasPickLink && !link;
+  const canResend = stored?.hasPickLink && !link && !linkPending;
   const summary = hasFieldError ? "Fix the phone or email" : contactSummary(row);
 
   return (

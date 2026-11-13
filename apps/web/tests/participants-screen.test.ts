@@ -5,9 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { mailtoHref, pickLinkMessage, smsHref } from "../app/lib/pick-link-share";
 import { ParticipantRow, ParticipantsEditor, PickLink } from "../app/receipts/[id]/participants/ParticipantsEditor";
+import { installLeaveGuard } from "../app/receipts/[id]/participants/leave-guard";
 import {
   type EditorReceipt,
   type SavedParticipant,
+  canSave,
   contactSummary,
   fieldErrors,
   formatPhone,
@@ -100,6 +102,48 @@ describe("roster logic", () => {
     expect(isReadOnly(receipt())).toBe(false);
     expect(isReadOnly(receipt({ status: "FINALIZED" }))).toBe(true);
     expect(isReadOnly(receipt({ parseStatus: "PARSING" }))).toBe(true);
+  });
+
+  it("offers Save only for a changed, non-empty roster with no save in flight", () => {
+    const rows = rowsFrom([maya]);
+    expect(canSave(rows, true, false)).toBe(true);
+    expect(canSave(rows, false, false)).toBe(false);
+    expect(canSave(rows, true, true)).toBe(false);
+    // Everyone removed: dirty, but the API rejects an empty roster.
+    expect(canSave([], true, false)).toBe(false);
+  });
+});
+
+describe("unsaved-changes guard", () => {
+  const fire = (target: EventTarget, type: string) => {
+    const e = new Event(type, { cancelable: true });
+    target.dispatchEvent(e);
+    return e;
+  };
+
+  it("asks the browser to confirm a page unload", () => {
+    const win = new EventTarget();
+    installLeaveGuard(win, () => true);
+    expect(fire(win, "beforeunload").defaultPrevented).toBe(true);
+  });
+
+  it("cancels a form submit, such as Sign out, unless the organizer confirms", () => {
+    const win = new EventTarget();
+    let answer = false;
+    const asked: string[] = [];
+    installLeaveGuard(win, (message) => (asked.push(message), answer));
+    expect(fire(win, "submit").defaultPrevented).toBe(true);
+    answer = true;
+    expect(fire(win, "submit").defaultPrevented).toBe(false);
+    expect(asked).toHaveLength(2);
+  });
+
+  it("stops guarding once removed", () => {
+    const win = new EventTarget();
+    const remove = installLeaveGuard(win, () => false);
+    remove();
+    expect(fire(win, "beforeunload").defaultPrevented).toBe(false);
+    expect(fire(win, "submit").defaultPrevented).toBe(false);
   });
 });
 

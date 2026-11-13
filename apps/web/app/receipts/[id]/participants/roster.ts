@@ -110,6 +110,12 @@ export function isDirty(rows: Row[], saved: SavedParticipant[]): boolean {
   });
 }
 
+// Save needs a change, no save in flight, and at least one person: the API
+// rejects an empty roster, so the button never offers a save that must fail.
+export function canSave(rows: Row[], dirty: boolean, saving: boolean): boolean {
+  return dirty && !saving && rows.length > 0;
+}
+
 // The whole roster in display order. Empty strings are sent, not omitted:
 // an empty phone or email clears it, and an empty name becomes "Guest N".
 export function rosterRequest(rows: Row[], revision: number) {

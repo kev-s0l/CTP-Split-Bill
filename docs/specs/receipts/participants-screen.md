@@ -73,11 +73,16 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 - **Remove**, in the row's menu, opens an `AlertDialog` naming the person. If
   they have a pick link, the dialog says the link will stop working once
   saved. Confirming removes the row from the draft and moves focus to Add
-  person; cancelling or Escape returns focus to the menu button.
+  person (the empty state's button when no one is left); cancelling or
+  Escape returns focus to the menu button.
 - Changes are a draft until **Save**, which sends the whole roster in display
   order with the revision the page loaded. Save is disabled while nothing has
-  changed and while a save is in flight. Leaving the page with unsaved
-  changes asks the browser to confirm.
+  changed, while no one is on the roster (the API requires at least one
+  person), and while a save is in flight. While a save is in flight every
+  field and button in the editor is disabled, so nothing typed then is lost
+  when the saved roster comes back. Leaving the page with unsaved changes
+  asks the browser to confirm; so does Sign out, which leaves without
+  unloading the page.
 - On success the editor takes the returned receipt detail as the new saved
   state and revision, new rows gain ids, and a toast says "Saved".
 - On failure the draft is kept and the API's message is shown above the
@@ -116,6 +121,8 @@ items (receipts/guest-picks.md) without the app sending anything itself.
 - The message names the receipt's merchant when it has one: "Pick what you
   had at <merchant>: <url>", and otherwise "Tap the items you had: <url>".
   It never includes names or amounts. The email subject is "Split Bill".
+- While a row's link request is in flight, that row's Create link is
+  disabled and its Send new link is hidden; other rows are unaffected.
 - A failed link request shows the API's message on that row and changes
   nothing else. Link requests do not change the receipt revision, so they
   never make an unsaved draft stale.
