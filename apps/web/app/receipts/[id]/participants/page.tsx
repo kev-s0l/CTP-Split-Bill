@@ -1,11 +1,8 @@
 // Organizer roster screen: who is splitting this receipt, and their pick links.
 // Spec: docs/specs/receipts/participants-screen.md.
-import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { currentUserId } from "@project/auth";
-import { ApiError, getReceipt } from "@project/domain";
 import { LoadingState } from "../../../components/LoadingState";
-import { loginPath } from "../../../lib/page-access";
+import { loadStep } from "../step-guard";
 import { ParticipantsEditor } from "./ParticipantsEditor";
 import { toEditorReceipt } from "./roster";
 
@@ -13,6 +10,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ParticipantsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  // Gate before streaming starts, so a locked step is a real 307.
+  await loadStep(id, "participants");
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -29,18 +28,8 @@ export default async function ParticipantsPage({ params }: { params: Promise<{ i
 }
 
 async function Roster({ receiptId }: { receiptId: string }) {
-  // Middleware normally signs visitors in first; this covers a session that
-  // ends between the two checks.
-  const signIn = loginPath(`/receipts/${encodeURIComponent(receiptId)}/participants`);
-  const userId = await currentUserId();
-  if (!userId) redirect(signIn);
-  try {
-    const receipt = await getReceipt(userId, receiptId);
-    return <ParticipantsEditor initial={toEditorReceipt(receipt)} />;
-  } catch (e) {
-    // Foreign and unknown receipts look the same: not found, never forbidden.
-    if (e instanceof ApiError && e.status === 404) notFound();
-    if (e instanceof ApiError && e.status === 401) redirect(signIn);
-    throw e;
-  }
+  // Same cached read as the layout and the page; signs in again or renders
+  // not found as loadStep describes.
+  const receipt = await loadStep(receiptId, "participants");
+  return <ParticipantsEditor initial={toEditorReceipt(receipt)} />;
 }
