@@ -25,7 +25,8 @@ removing assignments that would otherwise point to changed charges.
   integer digits. Prices are nonnegative strings with at most two fractional
   and ten integer digits. Leading zeros are allowed; strings are bounded.
 - Invalid JSON/fields return 400; unknown users 401; foreign/deleted/missing
-  receipts 404; finalized, parsing or stale writes 409.
+  receipts 404; finalized, parsing or stale writes 409, and any write while
+  picking is open (receipts/guest-picks.md).
 - One receipt-locked transaction deletes shared allocations and old items,
   inserts verified corrected items with generated IDs, clears reviewedAt and
   every participant's picksSubmittedAt (receipts/guest-picks.md), and returns

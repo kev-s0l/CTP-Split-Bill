@@ -22,13 +22,14 @@ const receiptRoute = await import("../app/api/receipts/[id]/route");
 const ALEX_PHONE = "+12125550111";
 const MAYA_EMAIL = "maya-picks@example.com";
 
-// A fresh reviewed draft per test: Alex (phone), Maya (email), Sam; rice,
-// mango, dumplings. Alex is the payer.
+// A fresh reviewed draft per test with picking open: Alex (phone), Maya
+// (email), Sam; rice, mango, dumplings. Alex is the payer.
 async function draft(splitMode: "EVEN" | "ITEMIZED" | "SHARED_ITEMS" = "ITEMIZED") {
   const receipt = await prisma.receipt.create({
     data: {
       ownerId: "picks-owner", imageBlobName: "picks.jpg", imageContentType: "image/jpeg",
       merchantName: "Noodle Bar", currency: "USD", splitMode, reviewedAt: new Date(0),
+      picksOpenedAt: new Date(0),
       subtotal: "22.00", tax: "0.00", tip: "0.00", total: "22.00",
       participants: { create: [
         { displayName: "Alex", phone: ALEX_PHONE, joinedAt: new Date(0) },
@@ -86,6 +87,8 @@ async function holdings(receiptId: string) {
     shared: item.sharedAllocations.map((a) => a.participantId).sort(),
   }]));
 }
+const setMode = (id: string, open: boolean) =>
+  prisma.receipt.update({ where: { id }, data: { picksOpenedAt: open ? new Date() : null } });
 const receiptRow = (id: string) => prisma.receipt.findUniqueOrThrow({ where: { id } });
 const participantRow = (id: string) => prisma.participant.findUniqueOrThrow({ where: { id } });
 
@@ -212,7 +215,7 @@ describe("GET /api/picks/:token", () => {
     const body = await res.json();
     expect(body).toEqual({
       status: "DRAFT", revision: 1, merchantName: "Noodle Bar", purchasedAt: null, currency: "USD",
-      participantId: d.sam.id, picksSubmittedAt: null,
+      participantId: d.sam.id, picksSubmittedAt: null, pickingOpen: true,
       participants: [
         { id: d.alex.id, displayName: "Alex" },
         { id: d.maya.id, displayName: "Maya" },
@@ -360,37 +363,48 @@ describe("PUT /api/picks/:token", () => {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/picks/:token/done", () => {
-  it("marks the holder done once, keeps the first time, and leaves the revision alone", async () => {
+  it("marks the holder done once, keeps the first time, and advances the revision only on the first press", async () => {
     const sam = await tokenFor(d.receipt.id, d.sam.id);
     const first = await submit(sam);
     expect(first.status).toBe(200);
     const at = (await participantRow(d.sam.id)).picksSubmittedAt;
     expect(at).toBeInstanceOf(Date);
-    expect((await first.json()).picksSubmittedAt).toBe(at!.toISOString());
+    const body = await first.json();
+    expect(body.picksSubmittedAt).toBe(at!.toISOString());
+    // The organizer's picks screen polls on revision (ADR-0018).
+    expect((await receiptRow(d.receipt.id)).revision).toBe(2);
+    expect(body.revision).toBe(2);
     expect((await submit(sam)).status).toBe(200);
     expect((await participantRow(d.sam.id)).picksSubmittedAt).toEqual(at);
-    expect((await receiptRow(d.receipt.id)).revision).toBe(1);
+    expect((await receiptRow(d.receipt.id)).revision).toBe(2);
   });
 
   it("a later save clears done until the holder presses it again", async () => {
     const sam = await tokenFor(d.receipt.id, d.sam.id);
-    await submit(sam);
-    await save(sam, { itemIds: [d.rice.id] });
+    expect((await submit(sam)).status).toBe(200);
+    expect((await participantRow(d.sam.id)).picksSubmittedAt).not.toBeNull();
+    expect((await save(sam, { itemIds: [d.rice.id] })).status).toBe(200);
     expect((await participantRow(d.sam.id)).picksSubmittedAt).toBeNull();
   });
 
   it("is cleared for everyone when the owner replaces items or a parse completes", async () => {
     const maya = await tokenFor(d.receipt.id, d.maya.id);
     const sam = await tokenFor(d.receipt.id, d.sam.id);
-    await submit(maya); await submit(sam);
+    expect((await submit(maya)).status).toBe(200);
+    expect((await submit(sam)).status).toBe(200);
+    expect((await participantRow(d.sam.id)).picksSubmittedAt).not.toBeNull();
+    await setMode(d.receipt.id, false);
     await replaceReceiptItems("picks-owner", d.receipt.id, {
-      expectedRevision: 1,
+      expectedRevision: (await receiptRow(d.receipt.id)).revision,
       items: [{ lineNumber: 1, name: "Soup", quantity: "1", unitPrice: "5.00", totalPrice: "5.00" }],
     });
     expect((await participantRow(d.maya.id)).picksSubmittedAt).toBeNull();
     expect((await participantRow(d.sam.id)).picksSubmittedAt).toBeNull();
 
-    await submit(sam);
+    await setMode(d.receipt.id, true);
+    expect((await submit(sam)).status).toBe(200);
+    expect((await participantRow(d.sam.id)).picksSubmittedAt).not.toBeNull();
+    await setMode(d.receipt.id, false);
     await prisma.receipt.update({ where: { id: d.receipt.id }, data: { parseStatus: "PARSING" } });
     const { revision } = await receiptRow(d.receipt.id);
     await completeReceiptParsing("picks-owner", d.receipt.id, revision,
