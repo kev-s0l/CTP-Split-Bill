@@ -10,5 +10,6 @@ export * from "./participants";
 export * from "./contact";
 export * from "./receipt-parsing";
 export * from "./picks";
+export * from "./receipt-summaries";
 // export * from "./members";
 export * from "./steps";
