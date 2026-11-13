@@ -1,10 +1,28 @@
 "use client";
+// Root error boundary (docs/specs/components.md, "The shell"). Shows generic
+// copy only: the error's message never reaches the screen. Retry refetches
+// the server data, then resets the boundary.
+import { useRouter } from "next/navigation";
+import { startTransition } from "react";
+import { ErrorState } from "./components/ErrorState";
 
-import { useEffect } from "react";
-import { Button } from "@/app/components/ui/button";
-import { Card, CardContent } from "@/app/components/ui/card";
-
-export default function HomeError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => { console.error(error); }, [error]);
-  return <Card><CardContent className="space-y-4 pt-6"><p role="alert">Could not load your bills.</p><Button onClick={reset}>Try again</Button></CardContent></Card>;
+export default function RootError({
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <ErrorState
+      title="Something went wrong"
+      message="This page didn't load. Try again in a moment."
+      onRetry={() =>
+        startTransition(() => {
+          router.refresh();
+          reset();
+        })
+      }
+    />
+  );
 }

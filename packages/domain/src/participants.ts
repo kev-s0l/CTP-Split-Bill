@@ -11,24 +11,7 @@ import {
   requireReceiptUser,
 } from "./receipt-access";
 import { ExpectedRevision, presentReceipt, receiptDetail } from "./receipt";
-
-// US numbers may skip the +1; anything else must start with + and a country code.
-// The spec allows parentheses, spaces, and hyphens, but strips them out in the string.
-export function normalizePhone(raw: string): string | null {
-  const digits = raw.replace(/[\s().-]/g, "");
-  if (/^\d{10}$/.test(digits)) return `+1${digits}`;
-  if (/^1\d{10}$/.test(digits)) return `+${digits}`;
-  if (/^\+[1-9]\d{7,14}$/.test(digits)) return digits;
-  return null;
-}
-
-// One address, local@domain, no spaces; trimmed and lowercased for storage.
-export function normalizeEmail(raw: string): string | null {
-  const email = raw.trim().toLowerCase();
-  if (email.length > 254) return null;
-  if (!/^[^\s@]+@[^\s@]+$/.test(email)) return null;
-  return email;
-}
+import { normalizeEmail, normalizePhone } from "./contact";
 
 // checks request body for 50 characters or less, no duplicate ids, and valid phone numbers.
 // Returns a normalized phone number or null.
@@ -125,9 +108,16 @@ export async function replaceReceiptParticipants(
     const removed = current.filter((p) => !kept.has(p.id));
     const receipt = await tx.receipt.findFirstOrThrow({
       where: scope,
-      select: { paidByParticipantId: true },
+      select: { paidByParticipantId: true, organizerParticipantId: true },
     });
     for (const p of removed) {
+      if (p.id === receipt.organizerParticipantId) {
+        throw new ApiError(
+          "CONFLICT",
+          "You can't remove yourself from the roster",
+          409,
+        );
+      }
       if (p.id === receipt.paidByParticipantId) {
         throw new ApiError(
           "CONFLICT",
@@ -151,8 +141,14 @@ export async function replaceReceiptParticipants(
 
     // joinedAt is the display order, so rewrite it to match the order sent.
     const base = current[0]?.joinedAt.getTime() ?? Date.now();
+    // "Guest N" counts only guests, so the first unnamed one is Guest 1
+    // wherever the organizer's row sits.
+    let guestNumber = 0;
     for (const [i, p] of input.participants.entries()) {
-      const displayName = p.displayName?.trim() || `Guest ${i + 1}`;
+      const isOrganizer = p.id !== undefined && p.id === receipt.organizerParticipantId;
+      if (!isOrganizer) guestNumber += 1;
+      const displayName =
+        p.displayName?.trim() || (isOrganizer ? "You" : `Guest ${guestNumber}`);
       // Omitted phone keeps what's stored; "" clears it.
       const phone =
         p.phone === undefined

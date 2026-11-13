@@ -20,7 +20,9 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
   resources return 404 without confirming their existence.
 - Updates to existing drafts require expectedRevision. Creation starts at revision
   1. The receipt lock checks owner, DRAFT,
-  non-PARSING state and revision, then advances revision transactionally.
+  non-PARSING state, picking paused and revision, then advances revision
+  transactionally. Opening or pausing picking and the organizer's own picks
+  take no expectedRevision (receipts/guest-picks.md).
   Parsing additionally supports guarded recovery of an abandoned attempt after
   five minutes, as described in receipts/parse.md.
 - Errors use { error: { code, message } }. Invalid JSON/input is 400; unknown
@@ -49,9 +51,11 @@ detailed behavior; this page distinguishes implemented operations from scaffolds
 | PUT | /api/receipts/[id]/participants | ReplaceParticipants with expectedRevision and participants: [{id?, displayName?, phone?, email?}]; receipt detail | receipts/participants.md |
 | POST | /api/receipts/[id]/participants/[participantId]/pick-link | Issue or rotate a participant's pick link; `{ url }`, shown once | receipts/guest-picks.md |
 | DELETE | /api/receipts/[id]/participants/[participantId]/pick-link | Revoke a participant's pick link; idempotent | receipts/guest-picks.md |
+| POST | /api/receipts/[id]/picking | `{ open }`; open or pause picking without changing the revision; receipt detail | receipts/guest-picks.md |
+| PUT | /api/receipts/[id]/picks | `{ itemIds }`; the organizer row's complete pick set, in either mode; receipt detail | receipts/guest-picks.md |
 | GET | /api/picks/[token] | Token-scoped projection: picking state on a draft, everyone's amounts once finalized | receipts/guest-picks.md |
-| PUT | /api/picks/[token] | ReplacePicks with itemIds; the holder's complete pick set; 409 once finalized | receipts/guest-picks.md |
-| POST | /api/picks/[token]/done | Mark the holder's picks submitted; idempotent; 409 once finalized | receipts/guest-picks.md |
+| PUT | /api/picks/[token] | ReplacePicks with itemIds; the holder's complete pick set; 409 while editing or once finalized | receipts/guest-picks.md |
+| POST | /api/picks/[token]/done | Mark the holder's picks submitted; idempotent; 409 while editing or once finalized | receipts/guest-picks.md |
 | PUT | /api/receipts/[id]/assignments | ReplaceAssignments with expectedRevision and assignments: [{itemId, participantId}]; receipt detail | bills/allocations.md |
 | PUT | /api/receipts/[id]/shared-allocations | ReplaceSharedAllocations with expectedRevision and allocations: [{itemId, participantIds}]; receipt detail | bills/allocations.md |
 | POST | /api/receipts/[id]/preview | ExpectedRevision; read-only participant allocations for the stored draft revision | bills/preview.md |

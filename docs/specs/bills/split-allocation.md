@@ -19,7 +19,8 @@ tax, tip and total columns match the corrected restaurant receipt.
 
 - Body requires {expectedRevision}. Client-provided bill amounts are ignored.
 - Unknown user is 401; foreign/deleted/missing receipt 404; finalized, parsing
-  or stale state 409. A receipt is locked and revision advanced transactionally.
+  or stale state 409, and so does a receipt with picking open
+  (receipts/guest-picks.md). A receipt is locked and revision advanced transactionally.
 - Receipt information must be reviewed, items verified and complete, subtotal
   positive, amounts nonnegative, items summed to subtotal, and subtotal + tax +
   tip equal total. Null tip means zero. At least one participant is required.

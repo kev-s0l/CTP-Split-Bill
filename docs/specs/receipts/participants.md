@@ -14,8 +14,10 @@ pick link.
 
 - packages/domain/src/participants.ts: ReplaceParticipants, normalizePhone,
   normalizeEmail and the roster transaction.
-- packages/db/prisma/schema.prisma: Participant.email (nullable), added by an
-  append-only migration.
+- packages/db/prisma/schema.prisma: Participant.email (nullable) and
+  Receipt.organizerParticipantId, added by append-only migrations.
+- packages/domain/src/receipt.ts: createReceipt adds the organizer's row
+  (receipts/upload.md).
 - apps/web/app/api/receipts/[id]/participants/route.ts: PUT.
 - apps/web/tests/participants-put-route.test.ts.
 
@@ -28,7 +30,9 @@ pick link.
   missing from the list are removed. The same id twice is 400.
 - The saved order is the order sent (joinedAt is rewritten to match).
 - displayName is trimmed, 1–50 characters. Blank or missing becomes
-  "Guest N", where N is the entry's 1-based position.
+  "Guest N", where N is the entry's 1-based position among the entries
+  other than the organizer's row, so the first unnamed guest is "Guest 1"
+  wherever "You" sits.
 - phone is optional. When present it is normalized to E.164 (US numbers may be
   entered without +1); anything that does not normalize returns 400 with
   message `phone: Enter a valid phone number`. An empty string clears it; an
@@ -42,6 +46,14 @@ pick link.
   assignment or shared allocation, returns 409 `CONFLICT`; the organizer
   unassigns first. Removing one with a pick link revokes it: the link's hash
   is deleted with the row (receipts/guest-picks.md).
+- The receipt's organizer row (Receipt.organizerParticipantId) is created
+  with the receipt and labeled "You" by screens. Leaving its id out of the
+  list returns 409 `CONFLICT` "You can't remove yourself from the roster".
+  Its name, phone, email and position can change like anyone's; a blank name
+  becomes "You" rather than "Guest N". Receipts
+  created before the organizer row have none, and nothing adds one.
+- While picking is open the roster can't change: 409 `CONFLICT` "Pause
+  picking to make changes" (receipts/guest-picks.md).
 - Changing names, phones or emails keeps reviewedAt; the revision advances.
 - Success returns receipt detail. Phones and emails appear only in owner
   responses (receipts/detail.md) and never in pick-link responses
@@ -54,6 +66,7 @@ pick link.
 | Input | Result |
 |---|---|
 | Four entries, no names | Guest 1 … Guest 4 |
+| "You" first, then two entries with no names | You, Guest 1, Guest 2 |
 | `{ displayName: "  Maya ", phone: "(555) 201-3344" }` | "Maya", +15552013344 |
 | phone "12" | 400 |
 | `{ email: " Maya@Example.com " }` | maya@example.com |
@@ -61,17 +74,25 @@ pick link.
 | Remove Sam, who is assigned the rice | 409; roster unchanged |
 | Entry id from another receipt | 404 |
 | Stale expectedRevision | 409 |
+| List leaves out the organizer's row | 409; roster unchanged |
+| Rename the organizer's row to "Andrew" | Saved; still the organizer row |
+| Any roster save while picking is open | 409; roster unchanged |
 
 ## Verify
 
 - pnpm test (participants-put-route.test.ts) covers default naming, trimming,
   phone and email normalization and rejection, id retention, removal guards,
   removal revoking a pick link, rollback and stale revisions.
+- pnpm test (picking-route.test.ts) covers the organizer row: it can't be
+  removed, can be renamed and moved, and is skipped by "Guest N"; and the
+  picking-open 409 writing nothing.
 - pnpm typecheck and pnpm build pass.
 
 ## Constraints & decisions
 
 - Participants stay receipt-local with no account link (ADR-0014).
+- The organizer is a participant (ADR-0018), so their share is never
+  forgotten and screens can tell them from guests.
 - The cap of 50 matches the people a single receipt plausibly splits between.
 - E.164 storage makes later SMS delivery a formatting-free step.
 

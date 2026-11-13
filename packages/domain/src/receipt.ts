@@ -57,6 +57,7 @@ export type UpdateReceiptInput = z.infer<typeof UpdateReceipt>;
 
 export const receiptDetail = {
   id: true, ownerId: true, title: true, paidByParticipantId: true,
+  organizerParticipantId: true, picksOpenedAt: true,
   status: true, parseStatus: true, splitMode: true, revision: true,
   reviewedAt: true, finalizedAt: true, merchantName: true, address: true,
   purchasedAt: true, currency: true, subtotal: true, tax: true, tip: true,
@@ -83,10 +84,15 @@ export const receiptDetail = {
 
 // Every receiptDetail read goes through here: the pick-token hash is reduced to
 // hasPickLink and never leaves the domain (receipts/detail.md).
-export function presentReceipt<P extends { pickTokenHash: string | null }, R extends { participants: P[] }>(receipt: R) {
+type PresentedParticipant<P> = Omit<P, "pickTokenHash"> & { hasPickLink: boolean };
+
+export function presentReceipt<P extends { pickTokenHash: string | null }, R extends { participants: P[] }>(
+  receipt: R & { participants: P[] },
+): Omit<R, "participants"> & { participants: PresentedParticipant<P>[] } {
+  const { participants, ...rest } = receipt;
   return {
-    ...receipt,
-    participants: receipt.participants.map(({ pickTokenHash, ...participant }) => ({
+    ...rest,
+    participants: participants.map(({ pickTokenHash, ...participant }) => ({
       ...participant,
       hasPickLink: pickTokenHash !== null,
     })),
@@ -249,14 +255,33 @@ export async function createReceipt(
   input: { id: string; imageBlobName: string; imageContentType: string },
 ) {
   await requireReceiptUser(userId);
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { name: true },
+  });
 
-  return presentReceipt(await prisma.receipt.create({
-    data: {
-      id: input.id,
-      ownerId: userId,
-      imageBlobName: input.imageBlobName,
-      imageContentType: input.imageContentType,
-    },
-    select: receiptDetail,
-  }));
+  // The organizer is on their own roster from the start (ADR-0018).
+  return prisma.$transaction(async (tx) => {
+    const receipt = await tx.receipt.create({
+      data: {
+        id: input.id,
+        ownerId: userId,
+        imageBlobName: input.imageBlobName,
+        imageContentType: input.imageContentType,
+        participants: { create: { displayName: organizerName(user.name) } },
+      },
+      select: { participants: { select: { id: true } } },
+    });
+    return presentReceipt(await tx.receipt.update({
+      where: { id: input.id },
+      data: { organizerParticipantId: receipt.participants[0].id },
+      select: receiptDetail,
+    }));
+  });
+}
+
+// The account name, trimmed to the roster's 50-character limit, or "You" when blank.
+export function organizerName(name: string | null): string {
+  const trimmed = name?.trim().slice(0, 50).trim();
+  return trimmed ? trimmed : "You";
 }

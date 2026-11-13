@@ -28,7 +28,8 @@ a stale editor must not overwrite or finalize someone else's newer draft.
   of this receipt; unknown/foreign participants return 404.
 - Unknown fields, including ownerId/status/revision, are ignored.
 - Unknown users receive 401. Foreign/deleted/missing receipts receive 404.
-  Finalized, parsing or stale requests receive 409.
+  Finalized, parsing or stale requests receive 409, as does any request
+  while picking is open (receipts/guest-picks.md).
 - One transaction locks and advances revision before updates. Failures roll
   back fields, revision and any allocation cleanup.
 - Content/monetary corrections clear reviewedAt. Split/payer changes advance
