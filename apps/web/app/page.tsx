@@ -1,5 +1,6 @@
 // Home: the signed-in organizer's receipts as BillCards, or the public landing
 // for a signed-out visitor. Spec: docs/specs/bills/list-screen.md.
+import Link from "next/link";
 import { Suspense } from "react";
 import { currentUserId } from "@project/auth";
 import { listReceiptSummaries } from "@project/domain";
@@ -31,7 +32,13 @@ async function ReceiptList({ userId }: { userId: string }) {
     <ul className="space-y-4">
       {receipts.map((receipt) => (
         <li key={receipt.id}>
-          <BillCard {...toBillCardProps(receipt)} />
+          {/* /receipts/[id] lands on the receipt's next step (receipts/flow.md). */}
+          <Link
+            href={`/receipts/${encodeURIComponent(receipt.id)}`}
+            className="block rounded-card focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>*]:transition-colors hover:[&>*]:border-brand"
+          >
+            <BillCard {...toBillCardProps(receipt)} />
+          </Link>
         </li>
       ))}
     </ul>

@@ -37,4 +37,18 @@ describe("home page", () => {
     expect(header).toContain("Your bills");
     expect(header).toMatch(/<a[^>]*href="\/receipts\/new"[^>]*>New receipt<\/a>/);
   });
+
+  it("links each bill card to its receipt", async () => {
+    mocks.currentUserId.mockResolvedValue("u1");
+    mocks.listReceiptSummaries.mockResolvedValue([
+      { id: "r 1", status: "DRAFT", merchantName: "Noodle Bar", title: null, total: "12.50",
+        createdAt: "2026-11-02T00:00:00.000Z", payerName: null, participantCount: 2, settled: null },
+    ]);
+    const page = (await Home()) as ReactElement<{ children: ReactElement[] }>;
+    const list = (page.props.children[1] as ReactElement<{ children: ReactElement<{ userId: string }> }>).props.children;
+    const html = renderToStaticMarkup(
+      (await (list.type as (props: { userId: string }) => Promise<ReactElement>)(list.props)),
+    );
+    expect(html).toMatch(/<a[^>]*href="\/receipts\/r%201"[^>]*>[\s\S]*Noodle Bar[\s\S]*<\/a>/);
+  });
 });

@@ -48,6 +48,8 @@ that is still in progress.
   `LoadingState` while the list loads, `EmptyState` with the New receipt
   action when there are no receipts, and the root error boundary
   (`app/error.tsx`) when the read fails.
+- Each card links to `/receipts/[id]`, which redirects to the receipt's next
+  step (receipts/flow.md); a finalized receipt opens on Finalize.
 - `/` stays public (auth/sign-in.md). A signed-out visitor sees a short
   landing with a Sign in link to `/login`; the summary query never runs for
   them.
@@ -75,6 +77,7 @@ that is still in progress.
 - Component tests cover the optional BillCard status slot and verify raw API
   money/date values are formatted before formatted strings reach the card.
 - Run `pnpm typecheck` and `pnpm build`.
+- Click or Tab-and-Enter a card: it opens the receipt on its next step.
 - Open `/` signed out: the landing shows with a Sign in link, not an error.
 - Complete the phone pass in web.md for the home screen, cards, badge and New
   receipt action.
