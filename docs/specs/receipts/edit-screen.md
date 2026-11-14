@@ -65,8 +65,8 @@ filling totals has to be quick, especially on a phone.
   total and a remove button; each input is labelled by its column for
   screen readers. Below `md:`, the items are a receipt-style list: one
   header row ("Qty", "Line total") above them, then two lines per item (the
-  name, with "Item" as its placeholder, then Qty, Line total and the remove
-  button), with a rule under the header, between items and after the last
+  name, with "Item" as its placeholder, and its remove button; then Qty and
+  Line total), with a rule under the header, between items and after the last
   one. No cards, and no per-row visible labels; every input keeps its
   screen-reader label ("Qty (item 2)"). No horizontal scroll at 375px.
 - **Line total** is what the whole line costs, the number the receipt

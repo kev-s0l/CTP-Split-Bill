@@ -401,7 +401,7 @@ describe("renders", () => {
   it("phones get a receipt-style list: one Qty / Line total header, rows divided by rules, no cards", () => {
     const html = render();
     // One header for every row, shown only on phones; the table header stays for md and up.
-    expect(html).toMatch(/<div aria-hidden="true" class="grid [^"]*md:hidden"><span class="text-right">Qty<\/span><span class="text-right">Line total<\/span>/);
+    expect(html).toMatch(/<div aria-hidden="true" class="grid [^"]*md:hidden"><span class="text-right">Qty<\/span><span class="col-span-2 text-right">Line total<\/span><\/div>/);
     const tr = html.match(/<tr data-slot="table-row" class="[^"]*max-md:grid[^"]*"/)![0];
     // Each row keeps the table's rule under it; the header and the list's
     // end carry the outer rules.
@@ -413,6 +413,15 @@ describe("renders", () => {
     // Per-row labels are for screen readers only; the name field says "Item".
     expect(html).not.toMatch(/md:sr-only/);
     expect(html).toMatch(/id="row-\d+-name"[^>]*placeholder="Item"|placeholder="Item"[^>]*id="row-\d+-name"/);
+  });
+
+  it("on phones the remove button sits on the item's name line, and Qty | Line total share the second", () => {
+    const html = render();
+    const cells = html.match(/<tr data-slot="table-row" class="[^"]*max-md:grid[\s\S]*?<\/tr>/)![0].match(/<td[^>]*class="([^"]*)"/g)!;
+    expect(cells[0]).toContain("max-md:col-span-2 max-md:row-start-1");
+    expect(cells[1]).toContain("max-md:col-start-1 max-md:row-start-2");
+    expect(cells[2]).toContain("max-md:col-span-2 max-md:col-start-2 max-md:row-start-2");
+    expect(cells[3]).toContain("max-md:col-start-3 max-md:row-start-1");
   });
 
   it("remove is a 44px icon button named for its item", () => {

@@ -434,11 +434,10 @@ export function ItemsTable({
   return (
     <>
     {/* Phones: one header for the second line of every item (Qty, Line
-        total); the first line is the item's name. */}
+        total); the first line is the item's name and its remove button. */}
     <div aria-hidden="true" className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_2.75rem] gap-2 border-b border-line pb-2 text-sm font-medium text-ink-muted md:hidden">
       <span className="text-right">Qty</span>
-      <span className="text-right">Line total</span>
-      <span />
+      <span className="col-span-2 text-right">Line total</span>
     </div>
     <Table className="max-md:block">
       <TableHeader className="max-md:hidden">
@@ -495,13 +494,14 @@ export function ItemsTable({
             );
           };
           return (
-            // Phones: two lines per item, the name on the first, then Qty |
-            // Line total | remove, divided by rules like a printed receipt.
+            // Phones: two lines per item, the name and its remove button on the
+            // first, then Qty | Line total, divided by rules like a printed
+            // receipt.
             <TableRow
               key={row.key}
               className="hover:bg-transparent max-md:grid max-md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_2.75rem] max-md:gap-2 max-md:border-line max-md:py-3"
             >
-              <TableCell className={cn(cell, "max-md:col-span-3")}>
+              <TableCell className={cn(cell, "max-md:col-span-2 max-md:row-start-1")}>
                 {input("name", "Item", {
                   value: row.name,
                   placeholder: "Item",
@@ -511,7 +511,7 @@ export function ItemsTable({
                   onKeyDown: (ev) => focusOnEnter(ev, rowFieldId(row.key, "qty")),
                 })}
               </TableCell>
-              <TableCell className={cell}>
+              <TableCell className={cn(cell, "max-md:col-start-1 max-md:row-start-2")}>
                 {input("qty", "Qty", {
                   value: row.qty,
                   inputMode: "decimal",
@@ -520,7 +520,7 @@ export function ItemsTable({
                   onKeyDown: (ev) => focusOnEnter(ev, rowFieldId(row.key, "price")),
                 })}
               </TableCell>
-              <TableCell className={cell}>
+              <TableCell className={cn(cell, "max-md:col-span-2 max-md:col-start-2 max-md:row-start-2")}>
                 {input("price", "Line total", {
                   value: row.price,
                   inputMode: "decimal",
@@ -540,7 +540,7 @@ export function ItemsTable({
                 })}
               </TableCell>
               {!readOnly && (
-                <TableCell className={cell}>
+                <TableCell className={cn(cell, "max-md:col-start-3 max-md:row-start-1")}>
                   <Button
                     type="button"
                     variant="ghost"
