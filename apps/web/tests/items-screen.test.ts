@@ -94,6 +94,29 @@ describe("tidying amounts", () => {
   });
 });
 
+describe("removing a row and undoing it", () => {
+  const rows = [row("a", "Chicken", "24", "10"), row("b", "Tea", "10"), row("c", "Rice", "3")];
+
+  it("removes the row and remembers where it was", () => {
+    const { rows: left, removed, index } = form.removeRowAt(rows, "b");
+    expect(left.map((r) => r.key)).toEqual(["a", "c"]);
+    expect(removed).toEqual(rows[1]);
+    expect(index).toBe(1);
+    expect(form.removeRowAt(rows, "nope")).toEqual({ rows, removed: null, index: -1 });
+  });
+
+  it("Undo puts the row back where it was, with everything typed in it", () => {
+    const { rows: left, removed, index } = form.removeRowAt(rows, "b");
+    expect(form.restoreRow(left, removed!, index)).toEqual(rows);
+  });
+
+  it("Undo after more rows were removed puts it at the end instead of past it, and never twice", () => {
+    const { removed, index } = form.removeRowAt(rows, "c");
+    expect(form.restoreRow([rows[0]], removed!, index).map((r) => r.key)).toEqual(["a", "c"]);
+    expect(form.restoreRow(rows, rows[2], 2)).toEqual(rows);
+  });
+});
+
 describe("subtitle", () => {
   it("after a failed scan, asks for the lines to be typed instead of fixed", () => {
     expect(form.subtitleFor("FAILED")).toBe("The scan couldn't read this one. Type the lines from the receipt, then confirm.");
@@ -310,7 +333,7 @@ describe("renders", () => {
     const html = render();
     expect(html.indexOf('id="receipt-merchant"')).toBeLessThan(html.indexOf("Items</h2>"));
     expect(html).toMatch(/<input[^>]*id="receipt-subtotal"[^>]*inputMode="decimal"|<input[^>]*inputMode="decimal"[^>]*id="receipt-subtotal"/i);
-    expect(html).toMatch(/<label[^>]*class="[^"]*md:sr-only[^"]*"[^>]*>Item<span class="sr-only"> \(item 1\)<\/span><\/label>/);
+    expect(html).toMatch(/<label[^>]*class="[^"]*sr-only[^"]*"[^>]*>Item<span class="sr-only"> \(item 1\)<\/span><\/label>/);
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
     expect(html.match(/<button[^>]*>Confirm items<\/button>/)![0]).not.toContain('disabled=""');
     expect(html).toContain("+ Add item");
@@ -375,10 +398,21 @@ describe("renders", () => {
     expect(render({ subtotal: null, tax: null, items: [{ name: null, quantity: null, totalPrice: null }] })).not.toContain('placeholder="0.00"');
   });
 
-  it("phones get two-line item blocks: Item, then Qty | Line total | remove", () => {
+  it("phones get a receipt-style list: one Qty / Line total header, rows divided by rules, no cards", () => {
     const html = render();
-    expect(html).toMatch(/<tr[^>]*class="[^"]*max-md:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1\.4fr\)_auto\]/);
-    expect(html).toMatch(/<td[^>]*class="[^"]*max-md:col-span-3[^"]*"[^>]*><div[^>]*><label[^>]*>Item/);
+    // One header for every row, shown only on phones; the table header stays for md and up.
+    expect(html).toMatch(/<div aria-hidden="true" class="grid [^"]*md:hidden"><span class="text-right">Qty<\/span><span class="text-right">Line total<\/span>/);
+    const tr = html.match(/<tr data-slot="table-row" class="[^"]*max-md:grid[^"]*"/)![0];
+    // Each row keeps the table's rule under it; the header and the list's
+    // end carry the outer rules.
+    expect(tr).toMatch(/^<tr data-slot="table-row" class="border-b /);
+    expect(html).toMatch(/<div aria-hidden="true" class="grid [^"]*border-b border-line[^"]*md:hidden">/);
+    expect(html).toMatch(/<tbody[^>]*class="[^"]*max-md:border-b max-md:border-line/);
+    expect(tr).not.toContain("max-md:bg-surface");
+    expect(tr).not.toContain("max-md:rounded-card");
+    // Per-row labels are for screen readers only; the name field says "Item".
+    expect(html).not.toMatch(/md:sr-only/);
+    expect(html).toMatch(/id="row-\d+-name"[^>]*placeholder="Item"|placeholder="Item"[^>]*id="row-\d+-name"/);
   });
 
   it("remove is a 44px icon button named for its item", () => {

@@ -63,9 +63,12 @@ filling totals has to be quick, especially on a phone.
 
 - At `md:` and up the items are a `Table` with columns Item, Qty, Line
   total and a remove button; each input is labelled by its column for
-  screen readers. Below `md:`, each item is a two-line block on the surface
-  color: Item on the first line, then Qty, Line total and the remove button
-  on the second, with no horizontal scroll at 375px.
+  screen readers. Below `md:`, the items are a receipt-style list: one
+  header row ("Qty", "Line total") above them, then two lines per item (the
+  name, with "Item" as its placeholder, then Qty, Line total and the remove
+  button), with a rule under the header, between items and after the last
+  one. No cards, and no per-row visible labels; every input keeps its
+  screen-reader label ("Qty (item 2)"). No horizontal scroll at 375px.
 - **Line total** is what the whole line costs, the number the receipt
   prints at the end of the line: Qty 10 with Line total 24.00 is ten items
   for $24.00 together. **Qty** defaults to 1 for a new item.
@@ -83,7 +86,10 @@ filling totals has to be quick, especially on a phone.
   least one item", and after removing the last row).
 - **Remove** is a 44×44px × icon button named "Remove <item name>" (or
   "Remove item 3") for screen readers. It deletes the row at once, with no
-  dialog: nothing is saved until
+  dialog, and shows a toast "Removed <item name>" with **Undo** for 6
+  seconds; Undo puts the row back at its old position with everything typed
+  in it. Removing a row with no name and no line total shows no toast.
+  Removal is otherwise local: nothing is saved until
   Save, and focus moves to the next row's name (or Add item).
 - Each row needs a name (at most 200 characters), a quantity greater than 0
   with at most three decimals, and a line total. A completely empty row (no
@@ -159,6 +165,8 @@ filling totals has to be quick, especially on a phone.
   to it clears the confirmation (receipts/edit.md, receipts/items.md); the
   page says "Changing items or totals means confirming them again." whenever
   the receipt is confirmed and the form has changes.
+- Toasts on this screen ("Saved", "Removed …") appear at the top center, so
+  they never cover the sticky action bar.
 - Leaving with unsaved changes asks first (the participants screen's leave
   guard, with its own message).
 
@@ -190,7 +198,8 @@ filling totals has to be quick, especially on a phone.
 | An empty row left at the end | Dropped on Save |
 | Items 13.00 = subtotal, 13 + 1 + 2 = total 16.00 | "Everything adds up: $16.00" with the next step; brand-colored border |
 | Picking open | Read-only with the pause banner |
-| Phone at 375px | Two-line item blocks; the action bar stays at the bottom while scrolling; no horizontal scroll |
+| Phone at 375px | Receipt-style list with one Qty / Line total header; the action bar stays at the bottom while scrolling; no horizontal scroll |
+| Tap × on Tea | Tea disappears; "Removed Tea" with Undo at the top; Undo puts it back where it was |
 
 ## Verify
 
@@ -237,8 +246,11 @@ filling totals has to be quick, especially on a phone.
   receipt is typed on a phone; it is the only copy of the buttons. It
   carries no totals status of its own, since that would only repeat the
   totals panel.
-- Removing a row has no dialog because nothing is lost until Save, and the
-  leave guard covers abandoning the page.
+- Removing a row has an undo toast, not a confirmation dialog: deliberate
+  removals stay one tap, and a mis-tap is recoverable. Nothing is lost
+  until Save, and the leave guard covers abandoning the page.
+- This screen's toasts sit at the top because a bottom toast would cover
+  Confirm items in the sticky bar and take a tap meant for it.
 - Title and address are editable through the API but not on this screen;
   the restaurant name is what the organizer and guests see.
 

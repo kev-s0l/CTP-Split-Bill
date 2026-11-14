@@ -213,6 +213,21 @@ export function eachHint(row: FormRow): string | null {
   return `${quantity} × ${dollars(unitPriceCents(total, quantity))} each`;
 }
 
+// Removing a row and putting it back (the Undo in the "Removed …" toast).
+export function removeRowAt(rows: FormRow[], key: string): { rows: FormRow[]; removed: FormRow | null; index: number } {
+  const index = rows.findIndex((row) => row.key === key);
+  if (index === -1) return { rows, removed: null, index: -1 };
+  return { rows: rows.filter((row) => row.key !== key), removed: rows[index], index };
+}
+
+// Puts a removed row back at its old position (or the end, if the list has
+// shrunk since). A row that's already there is not added twice.
+export function restoreRow(rows: FormRow[], removed: FormRow, index: number): FormRow[] {
+  if (rows.some((row) => row.key === removed.key)) return rows;
+  const at = Math.min(Math.max(index, 0), rows.length);
+  return [...rows.slice(0, at), removed, ...rows.slice(at)];
+}
+
 // ---- totals check ------------------------------------------------------------
 
 export type Totals = {

@@ -26,11 +26,14 @@ import {
   fieldId,
   formErrors,
   hasErrors,
+  isBlankRow,
   isDirty,
   itemRows,
   itemsBody,
   itemsCheckText,
   newRowKey,
+  removeRowAt,
+  restoreRow,
   rowFieldId,
   savePlan,
   tidyMoney,
@@ -42,6 +45,9 @@ import {
 export const LEAVE_MESSAGE = "You have unsaved changes to this receipt's items. Leave anyway?";
 const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again.";
 const CONFLICT = "This receipt changed somewhere else. Reload to see the latest.";
+// Toasts on this screen go to the top: the sticky action bar owns the bottom,
+// and a toast over it would take a tap meant for Confirm.
+const TOAST_POSITION = "top-center" as const;
 
 type SaveError = { message: string; conflict: boolean };
 
@@ -95,11 +101,24 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
     setFocusId(rowFieldId(key, "name"));
   }
   function removeRow(key: string) {
-    const index = form.rows.findIndex((row) => row.key === key);
-    const rows = form.rows.filter((row) => row.key !== key);
+    const { rows, removed, index } = removeRowAt(form.rows, key);
+    if (!removed) return;
     update({ rows });
     const next = rows[index] ?? rows[index - 1];
     setFocusId(next ? rowFieldId(next.key, "name") : "add-item");
+    // An empty row loses nothing, so it goes without a toast.
+    if (isBlankRow(removed)) return;
+    toast(`Removed ${removed.name.trim() || `item ${index + 1}`}`, {
+      position: TOAST_POSITION,
+      duration: 6000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          setForm((f) => ({ ...f, rows: restoreRow(f.rows, removed, index) }));
+          setFocusId(rowFieldId(removed.key, "name"));
+        },
+      },
+    });
   }
 
   async function reload() {
@@ -195,7 +214,7 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
       setForm(current.form);
       setTouched({});
       setShowAll(false);
-      toast.success("Saved");
+      toast.success("Saved", { position: TOAST_POSITION });
       router.refresh();
     } finally {
       setSaving(null);
@@ -413,6 +432,14 @@ export function ItemsTable({
   onEnterInPrice: () => void;
 }) {
   return (
+    <>
+    {/* Phones: one header for the second line of every item (Qty, Line
+        total); the first line is the item's name. */}
+    <div aria-hidden="true" className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_2.75rem] gap-2 border-b border-line pb-2 text-sm font-medium text-ink-muted md:hidden">
+      <span className="text-right">Qty</span>
+      <span className="text-right">Line total</span>
+      <span />
+    </div>
     <Table className="max-md:block">
       <TableHeader className="max-md:hidden">
         <TableRow>
@@ -422,7 +449,7 @@ export function ItemsTable({
           {!readOnly && <TableHead className="w-14"><span className="sr-only">Remove</span></TableHead>}
         </TableRow>
       </TableHeader>
-      <TableBody className="max-md:block max-md:space-y-3">
+      <TableBody className="max-md:block max-md:border-b max-md:border-line">
         {rows.map((row, index) => {
           const e = errors[row.key] ?? {};
           const cell = "whitespace-normal align-top max-md:block max-md:p-0";
@@ -435,7 +462,7 @@ export function ItemsTable({
             const describedBy = [error ? `${id}-error` : null, field === "price" && hint ? hintId : null].filter(Boolean).join(" ");
             return (
               <div className="space-y-1">
-                <Label htmlFor={id} className="md:sr-only">
+                <Label htmlFor={id} className="sr-only">
                   {label}
                   <span className="sr-only"> (item {index + 1})</span>
                 </Label>
@@ -468,15 +495,16 @@ export function ItemsTable({
             );
           };
           return (
-            // Phones: two lines per item, Item on the first, then Qty | Line
-            // total | remove, so a long receipt stays short enough to scan.
+            // Phones: two lines per item, the name on the first, then Qty |
+            // Line total | remove, divided by rules like a printed receipt.
             <TableRow
               key={row.key}
-              className="hover:bg-transparent max-md:grid max-md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] max-md:gap-2 max-md:rounded-card max-md:border max-md:border-line max-md:bg-surface max-md:p-3"
+              className="hover:bg-transparent max-md:grid max-md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_2.75rem] max-md:gap-2 max-md:border-line max-md:py-3"
             >
               <TableCell className={cn(cell, "max-md:col-span-3")}>
                 {input("name", "Item", {
                   value: row.name,
+                  placeholder: "Item",
                   autoComplete: "off",
                   enterKeyHint: "next",
                   onChange: (ev) => onChange(row.key, { name: ev.target.value }),
@@ -513,8 +541,6 @@ export function ItemsTable({
               </TableCell>
               {!readOnly && (
                 <TableCell className={cell}>
-                  {/* Lines the button up with the inputs below their phone labels. */}
-                  <span aria-hidden="true" className="block h-[18px] md:hidden" />
                   <Button
                     type="button"
                     variant="ghost"
@@ -532,6 +558,7 @@ export function ItemsTable({
         })}
       </TableBody>
     </Table>
+    </>
   );
 }
 
