@@ -306,37 +306,26 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
       )}
 
       {!readOnly && (
-        // Sticks to the bottom of the screen while the items scroll, so the
-        // running total and Confirm stay in reach on a long receipt.
+        // Sticks to the bottom of the screen while the items scroll, so Save
+        // and Confirm stay in reach on a long receipt. Whether things add up
+        // is shown once, in the totals panel.
         <div data-testid="action-bar" className="sticky bottom-0 z-10 -mx-4 space-y-2 border-t border-line bg-canvas px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {saved.reviewed && dirty && (
             <p className="text-sm text-ink-muted">Changing items or totals means confirming them again.</p>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <a href="#totals-heading" className="inline-flex min-h-11 items-center gap-3 rounded-md text-sm tabular-nums">
-              <span className="inline-flex items-center gap-1">
-                Items {check.itemsCents === null ? "—" : dollars(check.itemsCents)}
-                <BarMark diff={check.itemsDiff} />
+          <div className="flex items-center justify-end gap-3">
+            {saved.reviewed && !dirty && (
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
+                <CheckIcon aria-hidden="true" className="size-4" strokeWidth={3} />
+                Confirmed
               </span>
-              <span className="inline-flex items-center gap-1">
-                Total
-                <BarMark diff={check.amountsDiff} />
-              </span>
-            </a>
-            <div className="flex flex-1 items-center justify-end gap-3 max-md:basis-full">
-              {saved.reviewed && !dirty && (
-                <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
-                  <CheckIcon aria-hidden="true" className="size-4" strokeWidth={3} />
-                  Confirmed
-                </span>
-              )}
-              <Button type="button" variant="outline" className="min-h-11 max-md:flex-1" disabled={!dirty || saving !== null} onClick={() => save(false)}>
-                {saving === "save" ? "Saving…" : "Save"}
-              </Button>
-              <Button type="button" className="min-h-11 max-md:flex-1" disabled={saving !== null} onClick={() => save(true)}>
-                {saving === "confirm" ? "Saving…" : "Confirm items"}
-              </Button>
-            </div>
+            )}
+            <Button type="button" variant="outline" className="min-h-11 max-md:flex-1" disabled={!dirty || saving !== null} onClick={() => save(false)}>
+              {saving === "save" ? "Saving…" : "Save"}
+            </Button>
+            <Button type="button" className="min-h-11 max-md:flex-1" disabled={saving !== null} onClick={() => save(true)}>
+              {saving === "confirm" ? "Saving…" : "Confirm items"}
+            </Button>
           </div>
         </div>
       )}
@@ -629,23 +618,6 @@ export function CheckMark({ diff, text }: { diff: number | null; text: string | 
     <span className="inline-flex items-start gap-1 text-right text-destructive">
       <span>{text}</span>
       <XIcon aria-hidden="true" className="size-5 shrink-0" strokeWidth={3} />
-    </span>
-  );
-}
-
-// The action bar's compact mark: ✓ or ✗ with its meaning for screen readers,
-// or a dash while a part is missing. The full wording is in the totals panel.
-export function BarMark({ diff }: { diff: number | null }) {
-  if (diff === null) return <span className="text-ink-muted">—</span>;
-  return diff === 0 ? (
-    <span className="inline-flex text-brand">
-      <CheckIcon aria-hidden="true" className="size-4" strokeWidth={3} />
-      <span className="sr-only">matches</span>
-    </span>
-  ) : (
-    <span className="inline-flex text-destructive">
-      <XIcon aria-hidden="true" className="size-4" strokeWidth={3} />
-      <span className="sr-only">doesn't match</span>
     </span>
   );
 }

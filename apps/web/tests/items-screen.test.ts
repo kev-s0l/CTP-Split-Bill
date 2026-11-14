@@ -353,8 +353,8 @@ describe("renders", () => {
 
   it("the filled receipt shows two checks and no visible Matches", () => {
     const html = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
-    // "Everything adds up", the two result lines, and two in the action bar.
-    expect(html.match(/lucide-check/g)).toHaveLength(5);
+    // "Everything adds up" and the two result lines; the action bar has none.
+    expect(html.match(/lucide-check/g)).toHaveLength(3);
     expect(html.match(/<div class="flex items-start justify-between gap-3">/g)).toHaveLength(2);
     // Every "Matches" is screen-reader only.
     expect(html.split(">Matches<").length - 1).toBe(2);
@@ -393,14 +393,14 @@ describe("renders", () => {
     expect(html.match(/enterKeyHint="next"/gi)?.length).toBe(6);
   });
 
-  it("the action bar sticks to the bottom with the running total, both marks, Save and Confirm", () => {
+  it("the action bar sticks to the bottom with only Save and Confirm, no repeated totals", () => {
     const html = render({ subtotal: "22.50", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
-    const bar = html.slice(html.indexOf('data-testid="action-bar"'));
     expect(html).toMatch(/data-testid="action-bar" class="[^"]*sticky bottom-0/);
-    expect(bar).toMatch(/<a[^>]*href="#totals-heading"/);
-    expect(bar).toContain("Items $20.00");
-    expect(bar).toContain('<span class="sr-only">doesn&#x27;t match</span>');
+    const bar = html.slice(html.indexOf('data-testid="action-bar"'));
     expect(bar).toMatch(/>Save<\/button>[\s\S]*>Confirm items<\/button>/);
+    expect(bar).not.toContain("Items $");
+    expect(bar).not.toContain("lucide-check");
+    expect(bar).not.toContain("lucide-x");
   });
 
   it("when everything matches, says so with the total and what comes next", () => {

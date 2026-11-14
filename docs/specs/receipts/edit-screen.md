@@ -48,9 +48,8 @@ filling totals has to be quick, especially on a phone.
 - When a money field loses focus, a valid amount is tidied to grouped
   dollars and cents: "1024", "$1,024" and "1,024" all show as "1,024.00".
   Nothing changes while typing, and text that isn't an amount is left as
-  typed. Amounts shown elsewhere (the totals check, the each hint, the
-  action bar, values loaded from the receipt) use the same "1,024.00"
-  form.
+  typed. Amounts shown elsewhere (the totals check, the each hint, values
+  loaded from the receipt) use the same "1,024.00" form.
 - Empty is allowed for every field while editing. A non-empty money field
   must be a nonnegative amount with at most two decimals ("Enter an amount
   like 12.50"). A leading `$` and thousands commas are accepted as typed
@@ -117,12 +116,10 @@ filling totals has to be quick, especially on a phone.
 
 ### Save and Confirm
 
-- Save, Confirm items and a compact status sit in an **action bar** that
-  sticks to the bottom of the screen while the page scrolls, at every width.
-  The status reads "Items $X" with ✓ or ✗ and "Total" with ✓ or ✗ (a dash
-  while a part is missing); it links to the Totals section, where the full
-  wording is. "Confirmed" and the reconfirm note also live in the bar.
-
+- Save and Confirm items sit in an **action bar** that sticks to the
+  bottom of the screen while the page scrolls, at every width. "Confirmed"
+  and the reconfirm note also live in the bar. The bar does not repeat the
+  totals check; whether things add up is shown once, in the totals panel.
 - **Save** stores the corrections without confirming. **Confirm items**
   stores them and confirms them, which is what makes the People step
   available.
@@ -236,9 +233,10 @@ filling totals has to be quick, especially on a phone.
   readers may skip it. The live totals check shows the state before then.
 - `Table` is a layer-1 primitive in components/ui (docs/specs/components.md)
   so later screens reuse it.
-- The action bar is sticky so the running total and Confirm stay in reach
-  while a long receipt is typed on a phone; it is the only copy of the
-  buttons, so nothing is duplicated.
+- The action bar is sticky so Save and Confirm stay in reach while a long
+  receipt is typed on a phone; it is the only copy of the buttons. It
+  carries no totals status of its own, since that would only repeat the
+  totals panel.
 - Removing a row has no dialog because nothing is lost until Save, and the
   leave guard covers abandoning the page.
 - Title and address are editable through the API but not on this screen;
