@@ -76,6 +76,24 @@ describe("money as people type it", () => {
   });
 });
 
+describe("tidying amounts", () => {
+  it("shows any accepted amount as grouped dollars and cents after the field is left", () => {
+    for (const typed of ["1024", "$1024", "1,024", "$1,024", "$ 1,024.0", "1024.00"]) expect(form.tidyMoney(typed)).toBe("1,024.00");
+    expect(form.tidyMoney("12.5")).toBe("12.50");
+    expect(form.tidyMoney("0")).toBe("0.00");
+  });
+
+  it("leaves text that isn't an amount as typed, so its error makes sense", () => {
+    for (const typed of ["12.345", "1,2", "abc", ""]) expect(form.tidyMoney(typed)).toBe(typed);
+  });
+
+  it("groups thousands wherever money is shown", () => {
+    expect(form.displayMoney(123456789)).toBe("1,234,567.89");
+    expect(form.dollars(-102400)).toBe("$1,024.00");
+    expect(form.toEditorReceipt(detail({ subtotal: "2048.5" })).form.subtotal).toBe("2,048.50");
+  });
+});
+
 describe("subtitle", () => {
   it("after a failed scan, asks for the lines to be typed instead of fixed", () => {
     expect(form.subtitleFor("FAILED")).toBe("The scan couldn't read this one. Type the lines from the receipt, then confirm.");
@@ -326,6 +344,16 @@ describe("renders", () => {
     // Every "Matches" is screen-reader only.
     expect(html.split(">Matches<").length - 1).toBe(2);
     expect(html.split('sr-only">Matches<').length - 1).toBe(2);
+  });
+
+  it("money and quantities are right-aligned in tabular figures, and line totals get a $ prefix", () => {
+    const html = render();
+    expect(html).toMatch(/<th[^>]*class="[^"]*text-right[^"]*"[^>]*>Qty<\/th>/);
+    expect(html).toMatch(/<th[^>]*class="[^"]*text-right[^"]*"[^>]*>Line total<\/th>/);
+    const price = html.match(/<div class="relative">(?:(?!<\/div>).)*?id="row-\d+-price"[^>]*>/)![0];
+    expect(price).toContain(">$</span>");
+    expect(price).toMatch(/class="[^"]*text-right tabular-nums pl-7/);
+    expect(html).toMatch(/class="[^"]*pl-7 text-right tabular-nums[^"]*" id="receipt-subtotal"/);
   });
 
   it("money fields have no placeholder, so an empty field never looks filled", () => {

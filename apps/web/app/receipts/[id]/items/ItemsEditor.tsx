@@ -25,7 +25,6 @@ import {
   eachHint,
   fieldId,
   formErrors,
-  formatCents,
   hasErrors,
   isDirty,
   itemRows,
@@ -34,6 +33,8 @@ import {
   newRowKey,
   rowFieldId,
   savePlan,
+  tidyMoney,
+  displayMoney,
   toEditorReceipt,
   totals,
 } from "./receipt-form";
@@ -281,7 +282,11 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
                 value={form[field]}
                 error={shown(fieldId(field), errors.fields[field])}
                 onChange={(value) => update({ [field]: value })}
-                onBlur={() => touch(fieldId(field))}
+                onBlur={() => {
+                  touch(fieldId(field));
+                  const tidy = tidyMoney(form[field]);
+                  if (tidy !== form[field]) update({ [field]: tidy });
+                }}
               />
             ))}
           </div>
@@ -374,7 +379,7 @@ function MoneyField({
           inputMode="decimal"
           autoComplete="off"
           value={value}
-          className="min-h-11 pl-7 tabular-nums"
+          className="min-h-11 pl-7 text-right tabular-nums"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
           onChange={(e) => onChange(e.target.value)}
@@ -418,8 +423,8 @@ export function ItemsTable({
       <TableHeader className="max-md:hidden">
         <TableRow>
           <TableHead>Item</TableHead>
-          <TableHead className="w-24">Qty</TableHead>
-          <TableHead className="w-36">Line total</TableHead>
+          <TableHead className="w-24 text-right">Qty</TableHead>
+          <TableHead className="w-36 text-right">Line total</TableHead>
           {!readOnly && <TableHead className="w-14"><span className="sr-only">Remove</span></TableHead>}
         </TableRow>
       </TableHeader>
@@ -429,6 +434,7 @@ export function ItemsTable({
           const cell = "whitespace-normal align-top max-md:block max-md:p-0";
           const hint = eachHint(row);
           const hintId = `${row.key}-each`;
+          const numeric = (field: "name" | "qty" | "price") => field !== "name";
           const input = (field: "name" | "qty" | "price", label: string, props: React.ComponentProps<typeof Input>) => {
             const id = rowFieldId(row.key, field);
             const error = shown(id, e[field]);
@@ -439,21 +445,28 @@ export function ItemsTable({
                   {label}
                   <span className="sr-only"> (item {index + 1})</span>
                 </Label>
-                <Input
-                  id={id}
-                  className="min-h-11"
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={describedBy || undefined}
-                  onBlur={() => touch(id)}
-                  {...props}
-                />
+                <div className="relative">
+                  {field === "price" && (
+                    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
+                      $
+                    </span>
+                  )}
+                  <Input
+                    id={id}
+                    className={cn("min-h-11", numeric(field) && "text-right tabular-nums", field === "price" && "pl-7")}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={describedBy || undefined}
+                    onBlur={() => touch(id)}
+                    {...props}
+                  />
+                </div>
                 {error && (
                   <p id={`${id}-error`} className="text-sm text-destructive">
                     {error}
                   </p>
                 )}
                 {field === "price" && hint && (
-                  <p id={hintId} className="text-sm text-ink-muted tabular-nums">
+                  <p id={hintId} className="text-right text-sm text-ink-muted tabular-nums">
                     {hint}
                   </p>
                 )}
@@ -491,6 +504,11 @@ export function ItemsTable({
                   inputMode: "decimal",
                   enterKeyHint: "next",
                   onChange: (ev) => onChange(row.key, { price: ev.target.value }),
+                  onBlur: () => {
+                    touch(rowFieldId(row.key, "price"));
+                    const tidy = tidyMoney(row.price);
+                    if (tidy !== row.price) onChange(row.key, { price: tidy });
+                  },
                   onKeyDown: (ev) => {
                     if (ev.key === "Enter" && !readOnly) {
                       ev.preventDefault();
@@ -548,7 +566,7 @@ export function TotalsCheck({
         <CheckMark diff={check.itemsDiff} text={items} />
       </div>
       {canFillSubtotal && !readOnly && (
-        <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: formatCents(check.itemsCents!) })}>
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: displayMoney(check.itemsCents!) })}>
           Use items total
         </Button>
       )}
@@ -560,7 +578,7 @@ export function TotalsCheck({
         <CheckMark diff={check.amountsDiff} text={amounts} />
       </div>
       {canFillTotal && !readOnly && (
-        <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: formatCents(check.partsCents!) })}>
+        <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: displayMoney(check.partsCents!) })}>
           Use subtotal + tax + tip
         </Button>
       )}

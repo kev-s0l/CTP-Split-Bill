@@ -52,7 +52,7 @@ type Stored = { toString(): string } | null;
 function moneyText(value: Stored): string {
   if (value === null) return "";
   const cents = toCents(value.toString());
-  return cents === null ? value.toString() : formatCents(cents);
+  return cents === null ? value.toString() : displayMoney(cents);
 }
 
 let keySeq = 0;
@@ -135,8 +135,23 @@ export function formatCents(cents: number): string {
   return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
 }
 
+// For people: thousands grouped, always two decimals ("1,024.00").
+export function displayMoney(cents: number): string {
+  const abs = Math.abs(cents);
+  const whole = Math.floor(abs / 100).toLocaleString("en-US");
+  return `${cents < 0 ? "-" : ""}${whole}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+// What a money field shows after it loses focus: any accepted way of typing
+// an amount ("1024", "$1,024", "1,024.5") becomes "1,024.00". Text that isn't
+// an amount is left as typed so its error still makes sense.
+export function tidyMoney(text: string): string {
+  const cents = toCents(text);
+  return cents === null ? text : displayMoney(cents);
+}
+
 export function dollars(cents: number): string {
-  return `$${formatCents(Math.abs(cents))}`;
+  return `$${displayMoney(Math.abs(cents))}`;
 }
 
 // ---- rows and fields -------------------------------------------------------------

@@ -42,6 +42,15 @@ filling totals has to be quick, especially on a phone.
 - Below the items: **Subtotal**, **Tax**, **Tip** and **Total**, as money
   inputs (`inputmode="decimal"`, a `$` prefix). Money inputs, including
   Line total, have no placeholder, so an empty field never looks filled.
+- Money and quantities are right-aligned in tabular figures, in the inputs
+  and their table headers, so the columns line up like the paper receipt.
+  Line total has the same `$` prefix as the totals.
+- When a money field loses focus, a valid amount is tidied to grouped
+  dollars and cents: "1024", "$1,024" and "1,024" all show as "1,024.00".
+  Nothing changes while typing, and text that isn't an amount is left as
+  typed. Amounts shown elsewhere (the totals check, the each hint, the
+  action bar, values loaded from the receipt) use the same "1,024.00"
+  form.
 - Empty is allowed for every field while editing. A non-empty money field
   must be a nonnegative amount with at most two decimals ("Enter an amount
   like 12.50"). A leading `$` and thousands commas are accepted as typed
@@ -172,7 +181,7 @@ filling totals has to be quick, especially on a phone.
 | Save from a tab with an older revision | Conflict message with Reload; draft kept |
 | Qty 10, Line total 24 | "10 × $2.40 each" under the row; items add 24.00 |
 | Change that Qty to 12 | Line total stays 24.00; "12 × $2.00 each" |
-| Line total "$1,024" with Qty 2 | Accepted; saved as 1024.00; "2 × $512.00 each" |
+| Line total "$1,024" with Qty 2 | Accepted; shows "1,024.00" after leaving the field; saved as 1024.00; "2 × $512.00 each" |
 | A failed scan | Subtitle: "The scan couldn't read this one. Type the lines from the receipt, then confirm." |
 | Line total "12.345" | "Enter an amount like 12.50" under the field |
 | An empty row left at the end | Dropped on Save |
