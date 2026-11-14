@@ -49,9 +49,9 @@ filling totals has to be quick, especially on a phone.
 
 - At `md:` and up the items are a `Table` with columns Item, Qty, Line
   total and a remove button; each input is labelled by its column for
-  screen readers. Below `md:`, each item is a stacked block (Item on its own
-  line, then Qty and Line total side by side, then Remove), with no
-  horizontal scroll at 375px.
+  screen readers. Below `md:`, each item is a two-line block on the surface
+  color: Item on the first line, then Qty, Line total and the remove button
+  on the second, with no horizontal scroll at 375px.
 - **Line total** is what the whole line costs, the number the receipt
   prints at the end of the line: Qty 10 with Line total 24.00 is ten items
   for $24.00 together. **Qty** defaults to 1 for a new item.
@@ -61,12 +61,15 @@ filling totals has to be quick, especially on a phone.
   by this hint for screen readers. A Qty of 1 shows no hint.
 - Changing Qty keeps the Line total and updates the hint; nothing is
   recalculated behind the organizer's back.
-- **+ Add item** adds an empty row at the end and focuses its name. Enter in
-  a row's Line total field adds the next row, so a receipt can be typed straight
-  through. An empty list shows `EmptyState` "No items yet" with an **Add
+- **+ Add item** adds an empty row at the end and focuses its name. Enter
+  moves through a row: Item → Qty → Line total, and Enter in Line total adds
+  the next row, so a receipt can be typed straight through. Phone keyboards
+  show "next" on the Enter key for these fields. An empty list shows `EmptyState` "No items yet" with an **Add
   item** button; it is the same focus target as **+ Add item** (for "Add at
   least one item", and after removing the last row).
-- **Remove** deletes the row at once, with no dialog: nothing is saved until
+- **Remove** is a 44×44px × icon button named "Remove <item name>" (or
+  "Remove item 3") for screen readers. It deletes the row at once, with no
+  dialog: nothing is saved until
   Save, and focus moves to the next row's name (or Add item).
 - Each row needs a name (at most 200 characters), a quantity greater than 0
   with at most three decimals, and a line total. A completely empty row (no
@@ -93,6 +96,12 @@ filling totals has to be quick, especially on a phone.
   after a change.
 
 ### Save and Confirm
+
+- Save, Confirm items and a compact status sit in an **action bar** that
+  sticks to the bottom of the screen while the page scrolls, at every width.
+  The status reads "Items $X" with ✓ or ✗ and "Total" with ✓ or ✗ (a dash
+  while a part is missing); it links to the Totals section, where the full
+  wording is. "Confirmed" and the reconfirm note also live in the bar.
 
 - **Save** stores the corrections without confirming. **Confirm items**
   stores them and confirms them, which is what makes the People step
@@ -160,7 +169,7 @@ filling totals has to be quick, especially on a phone.
 | Line total "12.345" | "Enter an amount like 12.50" under the field |
 | An empty row left at the end | Dropped on Save |
 | Picking open | Read-only with the pause banner |
-| Phone at 375px | Stacked item blocks; no horizontal scroll |
+| Phone at 375px | Two-line item blocks; the action bar stays at the bottom while scrolling; no horizontal scroll |
 
 ## Verify
 
@@ -203,6 +212,9 @@ filling totals has to be quick, especially on a phone.
   readers may skip it. The live totals check shows the state before then.
 - `Table` is a layer-1 primitive in components/ui (docs/specs/components.md)
   so later screens reuse it.
+- The action bar is sticky so the running total and Confirm stay in reach
+  while a long receipt is typed on a phone; it is the only copy of the
+  buttons, so nothing is duplicated.
 - Removing a row has no dialog because nothing is lost until Save, and the
   leave guard covers abandoning the page.
 - Title and address are editable through the API but not on this screen;

@@ -301,18 +301,32 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
       )}
 
       {!readOnly && (
-        <div className="space-y-2">
+        // Sticks to the bottom of the screen while the items scroll, so the
+        // running total and Confirm stay in reach on a long receipt.
+        <div data-testid="action-bar" className="sticky bottom-0 z-10 -mx-4 space-y-2 border-t border-line bg-canvas px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {saved.reviewed && dirty && (
             <p className="text-sm text-ink-muted">Changing items or totals means confirming them again.</p>
           )}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="button" variant="outline" className="min-h-11" disabled={!dirty || saving !== null} onClick={() => save(false)}>
-              {saving === "save" ? "Saving…" : "Save"}
-            </Button>
-            <Button type="button" className="min-h-11" disabled={saving !== null} onClick={() => save(true)}>
-              {saving === "confirm" ? "Saving…" : "Confirm items"}
-            </Button>
-            {saved.reviewed && !dirty && <span className="text-sm text-ink-muted">Confirmed</span>}
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <a href="#totals-heading" className="inline-flex min-h-11 items-center gap-3 rounded-md text-sm tabular-nums">
+              <span className="inline-flex items-center gap-1">
+                Items {check.itemsCents === null ? "—" : dollars(check.itemsCents)}
+                <BarMark diff={check.itemsDiff} />
+              </span>
+              <span className="inline-flex items-center gap-1">
+                Total
+                <BarMark diff={check.amountsDiff} />
+              </span>
+            </a>
+            <div className="flex flex-1 items-center justify-end gap-3 max-md:basis-full">
+              {saved.reviewed && !dirty && <span className="text-sm text-ink-muted">Confirmed</span>}
+              <Button type="button" variant="outline" className="min-h-11 max-md:flex-1" disabled={!dirty || saving !== null} onClick={() => save(false)}>
+                {saving === "save" ? "Saving…" : "Save"}
+              </Button>
+              <Button type="button" className="min-h-11 max-md:flex-1" disabled={saving !== null} onClick={() => save(true)}>
+                {saving === "confirm" ? "Saving…" : "Confirm items"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -372,6 +386,13 @@ function MoneyField({
   );
 }
 
+// Enter in Item or Qty moves to the next field in the row.
+function focusOnEnter(ev: React.KeyboardEvent<HTMLInputElement>, nextId: string) {
+  if (ev.key !== "Enter") return;
+  ev.preventDefault();
+  document.getElementById(nextId)?.focus();
+}
+
 // A table at md: and up; below md each row stacks into a block, with visible
 // labels standing in for the hidden column headers.
 export function ItemsTable({
@@ -400,7 +421,7 @@ export function ItemsTable({
           <TableHead>Item</TableHead>
           <TableHead className="w-24">Qty</TableHead>
           <TableHead className="w-36">Line total</TableHead>
-          {!readOnly && <TableHead className="w-24"><span className="sr-only">Remove</span></TableHead>}
+          {!readOnly && <TableHead className="w-14"><span className="sr-only">Remove</span></TableHead>}
         </TableRow>
       </TableHeader>
       <TableBody className="max-md:block max-md:space-y-3">
@@ -441,21 +462,36 @@ export function ItemsTable({
             );
           };
           return (
+            // Phones: two lines per item, Item on the first, then Qty | Line
+            // total | remove, so a long receipt stays short enough to scan.
             <TableRow
               key={row.key}
-              className="hover:bg-transparent max-md:grid max-md:grid-cols-2 max-md:gap-3 max-md:rounded-card max-md:border max-md:border-line max-md:p-3"
+              className="hover:bg-transparent max-md:grid max-md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] max-md:gap-2 max-md:rounded-card max-md:border max-md:border-line max-md:bg-surface max-md:p-3"
             >
-              <TableCell className={cn(cell, "max-md:col-span-2")}>
-                {input("name", "Item", { value: row.name, autoComplete: "off", onChange: (ev) => onChange(row.key, { name: ev.target.value }) })}
+              <TableCell className={cn(cell, "max-md:col-span-3")}>
+                {input("name", "Item", {
+                  value: row.name,
+                  autoComplete: "off",
+                  enterKeyHint: "next",
+                  onChange: (ev) => onChange(row.key, { name: ev.target.value }),
+                  onKeyDown: (ev) => focusOnEnter(ev, rowFieldId(row.key, "qty")),
+                })}
               </TableCell>
               <TableCell className={cell}>
-                {input("qty", "Qty", { value: row.qty, inputMode: "decimal", onChange: (ev) => onChange(row.key, { qty: ev.target.value }) })}
+                {input("qty", "Qty", {
+                  value: row.qty,
+                  inputMode: "decimal",
+                  enterKeyHint: "next",
+                  onChange: (ev) => onChange(row.key, { qty: ev.target.value }),
+                  onKeyDown: (ev) => focusOnEnter(ev, rowFieldId(row.key, "price")),
+                })}
               </TableCell>
               <TableCell className={cell}>
                 {input("price", "Line total", {
                   value: row.price,
                   inputMode: "decimal",
                   placeholder: "0.00",
+                  enterKeyHint: "next",
                   onChange: (ev) => onChange(row.key, { price: ev.target.value }),
                   onKeyDown: (ev) => {
                     if (ev.key === "Enter" && !readOnly) {
@@ -466,9 +502,18 @@ export function ItemsTable({
                 })}
               </TableCell>
               {!readOnly && (
-                <TableCell className={cn(cell, "max-md:col-span-2")}>
-                  <Button type="button" variant="ghost" className="min-h-11 md:mt-0" onClick={() => onRemove(row.key)}>
-                    Remove<span className="sr-only"> {row.name.trim() || `item ${index + 1}`}</span>
+                <TableCell className={cell}>
+                  {/* Lines the button up with the inputs below their phone labels. */}
+                  <span aria-hidden="true" className="block h-[18px] md:hidden" />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="size-11 text-ink-muted hover:text-destructive"
+                    aria-label={`Remove ${row.name.trim() || `item ${index + 1}`}`}
+                    title="Remove"
+                    onClick={() => onRemove(row.key)}
+                  >
+                    <XIcon aria-hidden="true" className="size-5" />
                   </Button>
                 </TableCell>
               )}
@@ -542,6 +587,23 @@ export function CheckMark({ diff, text }: { diff: number | null; text: string | 
     <span className="inline-flex items-start gap-1 text-right text-destructive">
       <span>{text}</span>
       <XIcon aria-hidden="true" className="size-5 shrink-0" strokeWidth={3} />
+    </span>
+  );
+}
+
+// The action bar's compact mark: ✓ or ✗ with its meaning for screen readers,
+// or a dash while a part is missing. The full wording is in the totals panel.
+export function BarMark({ diff }: { diff: number | null }) {
+  if (diff === null) return <span className="text-ink-muted">—</span>;
+  return diff === 0 ? (
+    <span className="inline-flex text-brand">
+      <CheckIcon aria-hidden="true" className="size-4" strokeWidth={3} />
+      <span className="sr-only">matches</span>
+    </span>
+  ) : (
+    <span className="inline-flex text-destructive">
+      <XIcon aria-hidden="true" className="size-4" strokeWidth={3} />
+      <span className="sr-only">doesn't match</span>
     </span>
   );
 }

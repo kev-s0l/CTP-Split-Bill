@@ -297,11 +297,40 @@ describe("renders", () => {
 
   it("the filled receipt shows two checks and no visible Matches", () => {
     const html = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
-    expect(html.match(/lucide-check/g)).toHaveLength(2);
+    // Two in the totals panel, two in the action bar.
+    expect(html.match(/lucide-check/g)).toHaveLength(4);
     expect(html.match(/<div class="flex items-start justify-between gap-3">/g)).toHaveLength(2);
     // Every "Matches" is screen-reader only.
     expect(html.split(">Matches<").length - 1).toBe(2);
     expect(html.split('sr-only">Matches<').length - 1).toBe(2);
+  });
+
+  it("phones get two-line item blocks: Item, then Qty | Line total | remove", () => {
+    const html = render();
+    expect(html).toMatch(/<tr[^>]*class="[^"]*max-md:grid-cols-\[minmax\(0,1fr\)_minmax\(0,1\.4fr\)_auto\]/);
+    expect(html).toMatch(/<td[^>]*class="[^"]*max-md:col-span-3[^"]*"[^>]*><div[^>]*><label[^>]*>Item/);
+  });
+
+  it("remove is a 44px icon button named for its item", () => {
+    const html = render();
+    expect(html).toMatch(/<button[^>]*class="[^"]*size-11[^"]*"[^>]*aria-label="Remove Pad Thai"/);
+    expect(html).toMatch(/aria-label="Remove item 2"/);
+    expect(html).not.toMatch(/>Remove<span/);
+  });
+
+  it("Enter moves through Item, Qty and Line total", () => {
+    const html = render();
+    expect(html.match(/enterKeyHint="next"/gi)?.length).toBe(6);
+  });
+
+  it("the action bar sticks to the bottom with the running total, both marks, Save and Confirm", () => {
+    const html = render({ subtotal: "22.50", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    const bar = html.slice(html.indexOf('data-testid="action-bar"'));
+    expect(html).toMatch(/data-testid="action-bar" class="[^"]*sticky bottom-0/);
+    expect(bar).toMatch(/<a[^>]*href="#totals-heading"/);
+    expect(bar).toContain("Items $20.00");
+    expect(bar).toContain('<span class="sr-only">doesn&#x27;t match</span>');
+    expect(bar).toMatch(/>Save<\/button>[\s\S]*>Confirm items<\/button>/);
   });
 
   it("offers Use items total when the subtotal is empty", () => {
