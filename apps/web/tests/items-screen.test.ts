@@ -145,6 +145,31 @@ describe("Confirm's pre-check", () => {
   });
 });
 
+describe("the each hint", () => {
+  it("shows the price of one when Qty isn't 1", () => {
+    expect(form.eachHint(row("a", "Wings", "24", "10"))).toBe("10 × $2.40 each");
+    expect(form.eachHint(row("a", "Wings", "10.00", "3"))).toBe("3 × $3.33 each");
+    expect(form.eachHint(row("a", "Rice", "6.00", "1.5"))).toBe("1.5 × $4.00 each");
+  });
+
+  it("keeps the line total when Qty changes: 24 over 12 is $2.00 each", () => {
+    expect(form.eachHint(row("a", "Wings", "24", "12"))).toBe("12 × $2.00 each");
+  });
+
+  it("shows nothing for Qty 1 or while Qty or Line total is invalid", () => {
+    expect(form.eachHint(row("a", "Tea", "6.00", "1"))).toBeNull();
+    expect(form.eachHint(row("a", "Tea", "6.00", "1.0"))).toBeNull();
+    expect(form.eachHint(row("a", "Tea", "6.00", "0"))).toBeNull();
+    expect(form.eachHint(row("a", "Tea", "", "3"))).toBeNull();
+    expect(form.eachHint(row("a", "Tea", "abc", "3"))).toBeNull();
+  });
+
+  it("matches the unit price that's saved", () => {
+    const [saved] = form.itemsBody(f({ rows: [row("a", "Wings", "24", "10")] }), 1).items;
+    expect(form.eachHint(row("a", "Wings", "24", "10"))).toBe(`10 × $${saved.unitPrice} each`);
+  });
+});
+
 describe("Save and Confirm requests", () => {
   const saved = f();
 
@@ -230,6 +255,16 @@ describe("renders", () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
     expect(html.match(/<button[^>]*>Confirm items<\/button>/)![0]).not.toContain('disabled=""');
     expect(html).toContain("+ Add item");
+    expect(html).toMatch(/<th[^>]*>Line total<\/th>/);
+    expect(html).not.toMatch(/>Price</);
+  });
+
+  it("describes the Line total input with the each hint for Qty other than 1", () => {
+    const html = render({ items: [{ name: "Wings", quantity: "10", totalPrice: "24" }] });
+    const hint = html.match(/<p id="([^"]+-each)"[^>]*>10 × \$2\.40 each<\/p>/);
+    expect(hint).not.toBeNull();
+    expect(html).toMatch(new RegExp(`<input[^>]*aria-describedby="${hint![1]}"`));
+    expect(render({ items: [{ name: "Tea", quantity: "1", totalPrice: "6" }] })).not.toContain(" each</p>");
   });
 
   it("mismatched: the totals check says how far off, in a live region", () => {

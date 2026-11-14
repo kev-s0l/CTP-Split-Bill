@@ -21,6 +21,7 @@ import {
   amountsCheckText,
   confirmProblems,
   dollars,
+  eachHint,
   fieldId,
   formErrors,
   formatCents,
@@ -393,7 +394,7 @@ export function ItemsTable({
         <TableRow>
           <TableHead>Item</TableHead>
           <TableHead className="w-24">Qty</TableHead>
-          <TableHead className="w-36">Price</TableHead>
+          <TableHead className="w-36">Line total</TableHead>
           {!readOnly && <TableHead className="w-24"><span className="sr-only">Remove</span></TableHead>}
         </TableRow>
       </TableHeader>
@@ -401,9 +402,12 @@ export function ItemsTable({
         {rows.map((row, index) => {
           const e = errors[row.key] ?? {};
           const cell = "whitespace-normal align-top max-md:block max-md:p-0";
+          const hint = eachHint(row);
+          const hintId = `${row.key}-each`;
           const input = (field: "name" | "qty" | "price", label: string, props: React.ComponentProps<typeof Input>) => {
             const id = rowFieldId(row.key, field);
             const error = shown(id, e[field]);
+            const describedBy = [error ? `${id}-error` : null, field === "price" && hint ? hintId : null].filter(Boolean).join(" ");
             return (
               <div className="space-y-1">
                 <Label htmlFor={id} className="md:sr-only">
@@ -414,13 +418,18 @@ export function ItemsTable({
                   id={id}
                   className="min-h-11"
                   aria-invalid={error ? true : undefined}
-                  aria-describedby={error ? `${id}-error` : undefined}
+                  aria-describedby={describedBy || undefined}
                   onBlur={() => touch(id)}
                   {...props}
                 />
                 {error && (
                   <p id={`${id}-error`} className="text-sm text-destructive">
                     {error}
+                  </p>
+                )}
+                {field === "price" && hint && (
+                  <p id={hintId} className="text-sm text-ink-muted tabular-nums">
+                    {hint}
                   </p>
                 )}
               </div>
@@ -438,7 +447,7 @@ export function ItemsTable({
                 {input("qty", "Qty", { value: row.qty, inputMode: "decimal", onChange: (ev) => onChange(row.key, { qty: ev.target.value }) })}
               </TableCell>
               <TableCell className={cell}>
-                {input("price", "Price", {
+                {input("price", "Line total", {
                   value: row.price,
                   inputMode: "decimal",
                   placeholder: "0.00",

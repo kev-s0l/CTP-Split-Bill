@@ -47,21 +47,29 @@ filling totals has to be quick, especially on a phone.
 
 ### Items
 
-- At `md:` and up the items are a `Table` with columns Item, Qty, Price and
-  a remove button; each input is labelled by its column for screen readers. Below `md:`, each item is a stacked block (Item on its own
-  line, then Qty and Price side by side, then Remove), with no horizontal
-  scroll at 375px.
-- **Price** is the line's total (what the receipt prints at the end of the
-  line). **Qty** defaults to 1 for a new item.
+- At `md:` and up the items are a `Table` with columns Item, Qty, Line
+  total and a remove button; each input is labelled by its column for
+  screen readers. Below `md:`, each item is a stacked block (Item on its own
+  line, then Qty and Line total side by side, then Remove), with no
+  horizontal scroll at 375px.
+- **Line total** is what the whole line costs, the number the receipt
+  prints at the end of the line: Qty 10 with Line total 24.00 is ten items
+  for $24.00 together. **Qty** defaults to 1 for a new item.
+- When a row's Qty is not 1 and both Qty and Line total are valid, the row
+  shows the price of one under it, "10 × $2.40 each" (the line total divided
+  by the quantity, rounded to the cent). The Line total input is described
+  by this hint for screen readers. A Qty of 1 shows no hint.
+- Changing Qty keeps the Line total and updates the hint; nothing is
+  recalculated behind the organizer's back.
 - **+ Add item** adds an empty row at the end and focuses its name. Enter in
-  a row's Price field adds the next row, so a receipt can be typed straight
+  a row's Line total field adds the next row, so a receipt can be typed straight
   through. An empty list shows `EmptyState` "No items yet" with an **Add
   item** button.
 - **Remove** deletes the row at once, with no dialog: nothing is saved until
   Save, and focus moves to the next row's name (or Add item).
 - Each row needs a name (at most 200 characters), a quantity greater than 0
-  with at most three decimals, and a price. A completely empty row (no name,
-  no price) is dropped on Save instead of being an error.
+  with at most three decimals, and a line total. A completely empty row (no
+  name, no line total) is dropped on Save instead of being an error.
 - Row order is the receipt's order; Save numbers the lines 1, 2, 3… in that
   order.
 
@@ -98,8 +106,8 @@ filling totals has to be quick, especially on a phone.
   with `reviewConfirmed: true` for Confirm). When only the fields changed,
   only the PATCH is sent. A request that would change nothing is not sent:
   Save is disabled until something changes.
-- A unit price is not shown; it is saved as the price divided by the
-  quantity, rounded to the cent (receipts/items.md: the line total is
+- The unit price is not an input; it is saved as the line total divided by
+  the quantity, rounded to the cent, the same value the hint shows (receipts/items.md: the line total is
   authoritative).
 - After Save: a "Saved" toast, the form resets to the saved receipt, and the
   step bar refreshes. After Confirm: the browser goes to
@@ -141,7 +149,9 @@ filling totals has to be quick, especially on a phone.
 | Everything matches, press Confirm items | PUT items, PATCH with reviewConfirmed; lands on People |
 | Change only the restaurant name, press Save | One PATCH; "Saved" |
 | Save from a tab with an older revision | Conflict message with Reload; draft kept |
-| Price "12.345" | "Enter an amount like 12.50" under the field |
+| Qty 10, Line total 24 | "10 × $2.40 each" under the row; items add 24.00 |
+| Change that Qty to 12 | Line total stays 24.00; "12 × $2.00 each" |
+| Line total "12.345" | "Enter an amount like 12.50" under the field |
 | An empty row left at the end | Dropped on Save |
 | Picking open | Read-only with the pause banner |
 | Phone at 375px | Stacked item blocks; no horizontal scroll |
@@ -149,7 +159,8 @@ filling totals has to be quick, especially on a phone.
 ## Verify
 
 - pnpm test: items-screen.test.ts covers the field and row checks, dropping
-  empty rows, line numbering, unit price derivation, the cents arithmetic
+  empty rows, line numbering, unit price derivation and the "each" hint (shown only
+  for a valid Qty other than 1), the cents arithmetic
   and both checks' wording (short, over, matches, empty tip), Confirm's
   pre-check (each reason, and which field gets focus), the Table
   primitive's slots, which requests Save and Confirm send for
@@ -158,7 +169,7 @@ filling totals has to be quick, especially on a phone.
 - pnpm typecheck and pnpm build pass.
 - Drill (pnpm dev, signed in): on a receipt after a failed scan, type three
   items with Enter, fill Subtotal with Use items total, fill Tax, Tip and
-  Total, Confirm; People opens. Back on Items, edit a price and reload
+  Total, Confirm; People opens. Back on Items, edit a line total and reload
   without saving; the leave prompt shows. Save from a second, older tab;
   the conflict message shows.
 - Phone pass at 375px from web.md, and a keyboard-only pass through the
@@ -172,8 +183,15 @@ filling totals has to be quick, especially on a phone.
 - Two requests instead of one, because items and fields are separate
   APIs. Items go first so a Confirm validates the new items. The pair is
   not atomic; the partial-failure path keeps what was saved.
-- One Price per line instead of unit price and total: the receipt prints the
-  line total, and items.md treats it as authoritative.
+- The organizer enters the line total, not a unit price: receipts print
+  the line total (sometimes with "10 @ 2.40" beside it), the scan returns
+  line totals, and items.md treats the line total as authoritative. A
+  computed, read-only total, as invoicing tools use, would add a field to
+  every row on a phone and couldn't match a receipt whose line total isn't
+  exactly Qty × unit price. The column says "Line total" and the "each"
+  hint shows the price of one, so a per-unit misreading is visible at once.
+- Splitting a line by quantity ("I had 2 of the 3") belongs to the Picks
+  step, not this screen.
 - Confirm stays enabled and explains on press rather than being disabled:
   a disabled button can't be focused or tapped to find out why, and screen
   readers may skip it. The live totals check shows the state before then.

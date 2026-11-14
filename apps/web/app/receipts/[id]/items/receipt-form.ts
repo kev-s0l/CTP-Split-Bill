@@ -161,6 +161,21 @@ export function hasErrors(errors: FormErrors): boolean {
   return errors.merchant !== undefined || Object.keys(errors.fields).length > 0 || Object.keys(errors.rows).length > 0;
 }
 
+// The line total divided by the quantity, rounded to the cent. The line
+// total is authoritative (receipts/items.md); this is only derived from it.
+export function unitPriceCents(totalCents: number, quantity: number): number {
+  return Math.round(totalCents / quantity);
+}
+
+// "10 × $2.40 each" under a row whose Qty isn't 1; null otherwise.
+export function eachHint(row: FormRow): string | null {
+  const total = toCents(row.price);
+  if (!qtyOk(row.qty) || total === null) return null;
+  const quantity = Number(row.qty.trim());
+  if (quantity === 1) return null;
+  return `${quantity} × ${dollars(unitPriceCents(total, quantity))} each`;
+}
+
 // ---- totals check ------------------------------------------------------------
 
 export type Totals = {
@@ -297,7 +312,7 @@ export function itemsBody(form: ReceiptForm, expectedRevision: number) {
         quantity,
         // The line total is authoritative (receipts/items.md); unit price is
         // derived from it.
-        unitPrice: formatCents(Math.round(totalCents / Number(quantity))),
+        unitPrice: formatCents(unitPriceCents(totalCents, Number(quantity))),
         totalPrice: formatCents(totalCents),
       };
     }),
