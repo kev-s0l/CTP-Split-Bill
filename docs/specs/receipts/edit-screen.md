@@ -34,13 +34,19 @@ filling totals has to be quick, especially on a phone.
 
 ### Receipt fields
 
+- Under the heading "Check the items", the subtitle says "Fix anything the
+  scan got wrong, then confirm." After a failed scan it says "The scan
+  couldn't read this one. Type the lines from the receipt, then confirm."
 - At the top: **Restaurant** (merchantName), first and full width, then
   **Date** (a date picker; purchasedAt).
 - Below the items: **Subtotal**, **Tax**, **Tip** and **Total**, as money
-  inputs (`inputmode="decimal"`, a `$` prefix).
+  inputs (`inputmode="decimal"`, a `$` prefix). Money inputs, including
+  Line total, have no placeholder, so an empty field never looks filled.
 - Empty is allowed for every field while editing. A non-empty money field
   must be a nonnegative amount with at most two decimals ("Enter an amount
-  like 12.50"); the restaurant name is at most 200 characters. Messages show
+  like 12.50"). A leading `$` and thousands commas are accepted as typed
+  from a receipt ("$1,234.50"); a comma anywhere else is an error. What is
+  saved is the plain amount ("1234.50"); the restaurant name is at most 200 characters. Messages show
   under the field after it loses focus, and on Save for every field.
 - A chosen date is saved as noon UTC that day, so it shows the same date in
   every time zone.
@@ -86,7 +92,7 @@ filling totals has to be quick, especially on a phone.
   - At the right end of each line, a green check (✓) when it matches, or
     how far off it is followed by a red cross (✗), so the marks line up at
     the panel's edge: "Items are $2.50 short of the subtotal" / "over the
-    subtotal", or "$1.00 short" / "$1.00 over". Nothing shows while a part
+    subtotal", or "$1.00 short of the total" / "$1.00 over the total". Nothing shows while a part
     is missing. The icons are decorative; a screen reader hears "Matches" or
     the short/over text.
 - When Subtotal is empty and there is at least one priced item, a **Use items
@@ -166,6 +172,8 @@ filling totals has to be quick, especially on a phone.
 | Save from a tab with an older revision | Conflict message with Reload; draft kept |
 | Qty 10, Line total 24 | "10 × $2.40 each" under the row; items add 24.00 |
 | Change that Qty to 12 | Line total stays 24.00; "12 × $2.00 each" |
+| Line total "$1,024" with Qty 2 | Accepted; saved as 1024.00; "2 × $512.00 each" |
+| A failed scan | Subtitle: "The scan couldn't read this one. Type the lines from the receipt, then confirm." |
 | Line total "12.345" | "Enter an amount like 12.50" under the field |
 | An empty row left at the end | Dropped on Save |
 | Picking open | Read-only with the pause banner |

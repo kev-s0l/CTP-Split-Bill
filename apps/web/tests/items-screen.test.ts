@@ -60,10 +60,33 @@ describe("loading a receipt into the form", () => {
   });
 });
 
+describe("money as people type it", () => {
+  it("accepts a leading $ and thousands commas", () => {
+    expect(form.toCents("$12.50")).toBe(1250);
+    expect(form.toCents("$ 12.5")).toBe(1250);
+    expect(form.toCents("1,234.00")).toBe(123400);
+    expect(form.toCents("$1,234,567")).toBe(123456700);
+    expect(form.formErrors(f({ tax: "$1.80", rows: [row("a", "Pad Thai", "$14.00"), row("b", "Tea", "6")] })).fields).toEqual({});
+  });
+
+  it("saves what was typed as a plain amount", () => {
+    expect(form.changedFields(f({ subtotal: "$1,020.00" }), f())).toEqual({ subtotal: "1020.00" });
+    expect(form.itemsBody(f({ rows: [row("a", "Wings", "$1,024", "2")] }), 1).items[0]).toMatchObject({ totalPrice: "1024.00", unitPrice: "512.00" });
+    expect(form.isDirty(f({ subtotal: "$20.00" }), f())).toBe(false);
+  });
+});
+
+describe("subtitle", () => {
+  it("after a failed scan, asks for the lines to be typed instead of fixed", () => {
+    expect(form.subtitleFor("FAILED")).toBe("The scan couldn't read this one. Type the lines from the receipt, then confirm.");
+    expect(form.subtitleFor("SUCCEEDED")).toBe("Fix anything the scan got wrong, then confirm.");
+  });
+});
+
 describe("field and row checks", () => {
   it("accepts amounts with up to two decimals and rejects anything else", () => {
     for (const ok of ["0", "12", "12.5", "12.50", "9999999999.99"]) expect(form.toCents(ok)).not.toBeNull();
-    for (const bad of ["12.345", "-1", "1,00", "abc", "", "12345678901"]) expect(form.toCents(bad)).toBeNull();
+    for (const bad of ["12.345", "-1", "1,00", "1,2", "12,34.5", "$$1", "abc", "", "12345678901"]) expect(form.toCents(bad)).toBeNull();
     expect(form.formErrors(f({ tax: "1.805" })).fields).toEqual({ tax: MESSAGES.money });
     expect(form.formErrors(f({ tip: "" })).fields).toEqual({});
   });
@@ -100,8 +123,8 @@ describe("totals check", () => {
   it("says short or over by the exact amount", () => {
     expect(form.itemsCheckText(form.totals(f({ subtotal: "22.50" })).itemsDiff)).toBe("Items are $2.50 short of the subtotal");
     expect(form.itemsCheckText(form.totals(f({ subtotal: "19.00" })).itemsDiff)).toBe("Items are $1.00 over the subtotal");
-    expect(form.amountsCheckText(form.totals(f({ total: "26.00" })).amountsDiff)).toBe("$1.00 short");
-    expect(form.amountsCheckText(form.totals(f({ total: "24.99" })).amountsDiff)).toBe("$0.01 over");
+    expect(form.amountsCheckText(form.totals(f({ total: "26.00" })).amountsDiff)).toBe("$1.00 short of the total");
+    expect(form.amountsCheckText(form.totals(f({ total: "24.99" })).amountsDiff)).toBe("$0.01 over the total");
   });
 
   it("counts an empty tip as 0 and has no answer while a part is missing", () => {
@@ -303,6 +326,10 @@ describe("renders", () => {
     // Every "Matches" is screen-reader only.
     expect(html.split(">Matches<").length - 1).toBe(2);
     expect(html.split('sr-only">Matches<').length - 1).toBe(2);
+  });
+
+  it("money fields have no placeholder, so an empty field never looks filled", () => {
+    expect(render({ subtotal: null, tax: null, items: [{ name: null, quantity: null, totalPrice: null }] })).not.toContain('placeholder="0.00"');
   });
 
   it("phones get two-line item blocks: Item, then Qty | Line total | remove", () => {

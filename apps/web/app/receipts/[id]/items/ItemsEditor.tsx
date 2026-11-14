@@ -374,7 +374,6 @@ function MoneyField({
           inputMode="decimal"
           autoComplete="off"
           value={value}
-          placeholder="0.00"
           className="min-h-11 pl-7 tabular-nums"
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
@@ -490,7 +489,6 @@ export function ItemsTable({
                 {input("price", "Line total", {
                   value: row.price,
                   inputMode: "decimal",
-                  placeholder: "0.00",
                   enterKeyHint: "next",
                   onChange: (ev) => onChange(row.key, { price: ev.target.value }),
                   onKeyDown: (ev) => {

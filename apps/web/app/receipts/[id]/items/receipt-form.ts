@@ -39,6 +39,8 @@ export const MESSAGES = {
 } as const;
 
 const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
+// Commas are accepted only as thousands separators: 1,234.50, not 1,2.
+const THOUSANDS = /^\d{1,3}(,\d{3})+(\.\d{1,2})?$/;
 const QTY = /^\d{1,7}(\.\d{1,3})?$/;
 const MAX_TEXT = 200;
 
@@ -97,12 +99,32 @@ export function toEditorReceipt(r: {
   };
 }
 
+// The page's subtitle: after a failed scan there is nothing to fix, only
+// lines to type.
+export function subtitleFor(parseStatus: string): string {
+  return parseStatus === "FAILED"
+    ? "The scan couldn't read this one. Type the lines from the receipt, then confirm."
+    : "Fix anything the scan got wrong, then confirm.";
+}
+
 // ---- cents -------------------------------------------------------------------
 
-// "12.5" → 1250; null for anything that isn't a valid amount.
+// What people type from a receipt: a leading "$" and thousands commas are
+// fine. Returns the plain amount ("1234.50"), or null when it isn't one.
+export function normalizeMoney(text: string): string | null {
+  let t = text.trim();
+  if (t.startsWith("$")) t = t.slice(1).trim();
+  if (t.includes(",")) {
+    if (!THOUSANDS.test(t)) return null;
+    t = t.replace(/,/g, "");
+  }
+  return MONEY.test(t) ? t : null;
+}
+
+// "12.5", "$12.50" or "1,234" → cents; null for anything that isn't a valid amount.
 export function toCents(text: string): number | null {
-  const t = text.trim();
-  if (!MONEY.test(t)) return null;
+  const t = normalizeMoney(text);
+  if (t === null) return null;
   const [whole, frac = ""] = t.split(".");
   return Number(whole) * 100 + Number(frac.padEnd(2, "0"));
 }
@@ -214,7 +236,7 @@ export function itemsCheckText(diff: number | null): string | null {
 export function amountsCheckText(diff: number | null): string | null {
   if (diff === null) return null;
   if (diff === 0) return "Matches";
-  return diff > 0 ? `${dollars(diff)} short` : `${dollars(diff)} over`;
+  return diff > 0 ? `${dollars(diff)} short of the total` : `${dollars(diff)} over the total`;
 }
 
 // ---- Confirm's pre-check ---------------------------------------------------------
