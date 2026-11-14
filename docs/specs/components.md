@@ -20,7 +20,9 @@ query plan or a currency decision into whatever screen renders it next.
   `CardContent`, `CardFooter`), `button.tsx` (`Button`, `buttonVariants`),
   `dropdown-menu.tsx` (`DropdownMenu` and its parts), `skeleton.tsx`
   (`Skeleton`), `alert.tsx` (`Alert`, `AlertTitle`, `AlertDescription`),
-  `sonner.tsx` (`Toaster`) and `badge.tsx` (`Badge`, `badgeVariants`).
+  `sonner.tsx` (`Toaster`), `badge.tsx` (`Badge`, `badgeVariants`) and
+  `table.tsx` (`Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`,
+  `TableCell`).
 - `apps/web/app/components/` (outside `ui/`) — **layer 2**, domain
   components: `BillCard.tsx`, `UserMenu.tsx`, and the async-state blocks
   `LoadingState.tsx`, `EmptyState.tsx` and `ErrorState.tsx`.
