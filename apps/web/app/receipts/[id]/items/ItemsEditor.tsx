@@ -11,6 +11,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { cn } from "../../../lib/cn";
+import { installLinkGuard } from "../../../lib/link-guard";
 import { loginPath } from "../../../lib/page-access";
 import { installLeaveGuard } from "../participants/leave-guard";
 import {
@@ -79,6 +80,30 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
     if (!dirty || readOnly) return;
     return installLeaveGuard(window, (message) => window.confirm(message), LEAVE_MESSAGE);
   }, [dirty, readOnly]);
+
+  // The toast's Save button runs the latest save, not the one from when the
+  // toast appeared.
+  const saveRef = useRef<(confirm: boolean) => Promise<boolean>>(async () => false);
+  // Back, Next and other in-app links don't unload the page, so the browser
+  // prompt never fires for them; hold the click and ask with a toast instead.
+  useEffect(() => {
+    if (!dirty || readOnly) return;
+    return installLinkGuard(document, (href) => {
+      toast("You have unsaved changes", {
+        id: "unsaved-changes",
+        position: TOAST_POSITION,
+        description: "Save them before leaving, or discard them.",
+        duration: 10000,
+        action: {
+          label: "Save and continue",
+          onClick: async () => {
+            if (await saveRef.current(false)) router.push(href);
+          },
+        },
+        cancel: { label: "Discard", onClick: () => router.push(href) },
+      });
+    });
+  }, [dirty, readOnly, router]);
 
   useEffect(() => {
     if (!focusId) return;
@@ -178,16 +203,21 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
     return toEditorReceipt(await res.json());
   }
 
-  async function save(confirm: boolean) {
+  // Returns whether everything was saved.
+  async function save(confirm: boolean): Promise<boolean> {
     setShowAll(true);
     setSaveError(null);
     if (confirm) {
       const found = confirmProblems(form);
       setProblems(found);
-      if (found.length > 0) return setFocusId(found[0].focusId);
+      if (found.length > 0) {
+        setFocusId(found[0].focusId);
+        return false;
+      }
     } else if (hasErrors(errors)) {
       const first = confirmProblems(form)[0];
-      return setFocusId(first?.focusId ?? null);
+      setFocusId(first?.focusId ?? null);
+      return false;
     }
 
     const plan = savePlan(form, saved.form, confirm);
@@ -196,7 +226,7 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
     try {
       if (plan.items) {
         const next = await send(`/api/receipts/${encodeURIComponent(saved.id)}/items`, "PUT", itemsBody(form, current.revision));
-        if (!next) return;
+        if (!next) return false;
         // Keep the saved items even if the field update below fails.
         current = { ...next, form: { ...current.form, rows: next.form.rows } };
         setSaved(current);
@@ -204,13 +234,13 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
       if (plan.patch) {
         const fields = savePlan(form, current.form, confirm).patch!;
         const next = await send(`/api/receipts/${encodeURIComponent(saved.id)}`, "PATCH", { expectedRevision: current.revision, ...fields });
-        if (!next) return;
+        if (!next) return false;
         current = next;
       }
       if (confirm) {
         // The step bar refreshes itself when the step changes (StepBar.tsx).
         router.push(`${base}/participants`);
-        return;
+        return true;
       }
       setSaved(current);
       setForm(current.form);
@@ -218,10 +248,12 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
       setShowAll(false);
       toast.success("Saved", { position: TOAST_POSITION });
       router.refresh();
+      return true;
     } finally {
       setSaving(null);
     }
   }
+  saveRef.current = save;
 
   return (
     <div className="space-y-6">

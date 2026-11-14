@@ -25,6 +25,9 @@ filling totals has to be quick, especially on a phone.
   `TableCell`), written by hand from the template; no new dependency.
 - apps/web/app/receipts/[id]/participants/leave-guard.ts: reused for the
   unsaved-changes prompt.
+- apps/web/app/lib/link-guard.ts: holds in-app link clicks while there are
+  unsaved changes.
+- apps/web/tests/link-guard.test.ts.
 - apps/web/tests/items-screen.test.ts.
 - APIs used, unchanged: `PUT /api/receipts/[id]/items` (receipts/items.md),
   `PATCH /api/receipts/[id]` (receipts/edit.md) and
@@ -173,8 +176,19 @@ filling totals has to be quick, especially on a phone.
   the receipt is confirmed and the form has changes.
 - Toasts on this screen ("Saved", "Removed …") appear at the top center, so
   they never cover the sticky action bar.
-- Leaving with unsaved changes asks first (the participants screen's leave
-  guard, with its own message).
+- **Leaving with unsaved changes:**
+  - Closing or reloading the tab, and form submits such as Sign out, ask
+    with the browser's prompt (the participants screen's leave guard, with
+    its own message).
+  - A click on a link to another page of the app (Back, Next, a step, the
+    home link) does not navigate. A toast at the top says "You have unsaved
+    changes" / "Save them before leaving, or discard them." with **Save and
+    continue** (save, then go where the link pointed; if saving fails, stay
+    and show why) and **Discard** (go without saving). Doing nothing keeps
+    the organizer on the page with the changes. Links that open another
+    tab, modified clicks, downloads, links to other sites and same-page
+    anchors are not held.
+  - The browser's own Back and Forward buttons are not held.
 
 ### Read-only states
 
@@ -205,6 +219,7 @@ filling totals has to be quick, especially on a phone.
 | Items 13.00 = subtotal, 13 + 1 + 2 = total 16.00 | "Everything adds up: $16.00" with the next step; brand-colored border |
 | Picking open | Read-only with the pause banner |
 | Phone at 375px, Chicken Qty 10 for 24.00 | Line 2 reads "Qty 10 × $2.40 = $ 24.00"; the action bar stays at the bottom while scrolling; no horizontal scroll |
+| Unsaved change, press Back in the step bar | Stays on Items; "You have unsaved changes" with Save and continue / Discard |
 | Tap × on Tea | Tea disappears; "Removed Tea" with Undo at the top; Undo puts it back where it was |
 
 ## Verify
@@ -221,7 +236,9 @@ filling totals has to be quick, especially on a phone.
 - Drill (pnpm dev, signed in): on a receipt after a failed scan, type three
   items with Enter, fill Subtotal with Use items total, fill Tax, Tip and
   Total, Confirm; People opens. Back on Items, edit a line total and reload
-  without saving; the leave prompt shows. Save from a second, older tab;
+  without saving; the leave prompt shows. Edit it again and press the step
+  bar's Back; the unsaved-changes toast shows, Discard leaves without
+  saving, and Save and continue saves first. Save from a second, older tab;
   the conflict message shows.
 - Phone pass at 375px from web.md, and a keyboard-only pass through the
   fields, adding and removing rows, and Confirm.
@@ -255,6 +272,11 @@ filling totals has to be quick, especially on a phone.
 - Removing a row has an undo toast, not a confirmation dialog: deliberate
   removals stay one tap, and a mis-tap is recoverable. Nothing is lost
   until Save, and the leave guard covers abandoning the page.
+- In-app links are held with a toast rather than the browser's prompt
+  because Next.js links don't unload the page, so the prompt never fires
+  for them; the toast also offers saving, which the prompt can't. The
+  browser's Back and Forward buttons can't be held without breaking
+  history, so they aren't.
 - This screen's toasts sit at the top because a bottom toast would cover
   Confirm items in the sticky bar and take a tap meant for it.
 - Title and address are editable through the API but not on this screen;
