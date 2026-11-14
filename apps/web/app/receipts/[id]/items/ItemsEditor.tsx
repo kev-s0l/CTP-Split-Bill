@@ -236,7 +236,9 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
         <section aria-labelledby="items-heading" className="space-y-3">
           <h2 id="items-heading" className="text-lg font-semibold">Items</h2>
           {form.rows.length === 0 ? (
-            !readOnly && <EmptyState title="No items yet" message="Add each line from the receipt." actionLabel="Add item" onAction={addRow} />
+            !readOnly && (
+              <EmptyState title="No items yet" message="Add each line from the receipt." actionLabel="Add item" actionId="add-item" onAction={addRow} />
+            )
           ) : (
             <ItemsTable
               rows={form.rows}
@@ -255,6 +257,18 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
             </Button>
           )}
         </section>
+
+        {/* Above the totals, so it stays in view when focus moves to Subtotal or Total. */}
+        {problems.length > 0 && (
+          <div role="alert" className="space-y-1 rounded-md border border-destructive p-3 text-destructive">
+            <p className="font-medium">Before confirming:</p>
+            <ul className="list-disc pl-5">
+              {problems.map((p) => (
+                <li key={p.message}>{p.message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <section aria-labelledby="totals-heading" className="space-y-3">
           <h2 id="totals-heading" className="text-lg font-semibold">Totals</h2>
@@ -275,16 +289,6 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
         </section>
       </fieldset>
 
-      {problems.length > 0 && (
-        <div role="alert" className="space-y-1 rounded-md border border-destructive p-3 text-destructive">
-          <p className="font-medium">Before confirming:</p>
-          <ul className="list-disc pl-5">
-            {problems.map((p) => (
-              <li key={p.message}>{p.message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
       {saveError && (
         <div role="alert" className="space-y-2 rounded-md border border-destructive p-3 text-destructive">
           <p>{saveError.message}</p>

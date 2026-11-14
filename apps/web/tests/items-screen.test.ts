@@ -241,10 +241,13 @@ describe("renders", () => {
     expect(html).toMatch(/<th[^>]*>Item<\/th>[\s\S]*<td[^>]*>Tea<\/td>/);
   });
 
-  it("empty receipt: No items yet with Add item", () => {
+  it("empty receipt: No items yet with Add item, which is Confirm's focus target", () => {
     const html = render({ items: [] });
     expect(html).toContain("No items yet");
-    expect(html).toMatch(/<button[^>]*>Add item<\/button>/);
+    expect(html).toMatch(/<button[^>]*id="add-item"[^>]*>Add item<\/button>/);
+    // The focus target the "Add at least one item" problem points at exists.
+    const target = form.confirmProblems(form.toEditorReceipt(detail({ items: [] })).form)[0].focusId;
+    expect(html).toContain(`id="${target}"`);
   });
 
   it("filled: restaurant first, labelled item inputs, money inputs, and both buttons enabled", () => {

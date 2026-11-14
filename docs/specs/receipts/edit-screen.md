@@ -64,7 +64,8 @@ filling totals has to be quick, especially on a phone.
 - **+ Add item** adds an empty row at the end and focuses its name. Enter in
   a row's Line total field adds the next row, so a receipt can be typed straight
   through. An empty list shows `EmptyState` "No items yet" with an **Add
-  item** button.
+  item** button; it is the same focus target as **+ Add item** (for "Add at
+  least one item", and after removing the last row).
 - **Remove** deletes the row at once, with no dialog: nothing is saved until
   Save, and focus moves to the next row's name (or Add item).
 - Each row needs a name (at most 200 characters), a quantity greater than 0
@@ -100,7 +101,8 @@ filling totals has to be quick, especially on a phone.
   Pressing it checks first, without a request: the form must be valid, have
   at least one item, have Subtotal, Tax and Total filled, and both totals
   checks must match (✓). If not, nothing is sent; the reasons show in an
-  alert above the buttons ("Add at least one item", "Fill in the subtotal,
+  alert between the Items and Totals sections, so it stays in view when
+  focus moves to Subtotal or Total ("Add at least one item", "Fill in the subtotal,
   tax and total", "Items don't add up to the subtotal yet", "Subtotal + tax
   + tip doesn't match the total yet", and "Fix the highlighted fields") and
   focus moves to the first field with a problem. The server's check is still

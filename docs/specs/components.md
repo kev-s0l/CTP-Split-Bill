@@ -235,7 +235,7 @@ screen decides when each one shows; these decide what it looks like.
 | Component | Props | Renders |
 |---|---|---|
 | `LoadingState` | `label`, `rows` (default 3) | a `role="status"` region announcing `label` to screen readers, with `rows` `Skeleton` bars; the Suspense fallback for a section |
-| `EmptyState` | `title`, `message`, `actionLabel`, and exactly one of `actionHref` or `onAction` | the title and message, and one primary action drawn as a `Button`: a link to `actionHref`, or a button that calls `onAction`. There is no variant without an action |
+| `EmptyState` | `title`, `message`, `actionLabel`, exactly one of `actionHref` or `onAction`, and an optional `actionId` so a caller can move focus to the action | the title and message, and one primary action drawn as a `Button`: a link to `actionHref`, or a button that calls `onAction`. There is no variant without an action |
 | `ErrorState` | `title`, `message`, `onRetry` | a destructive `Alert` with the title, message and a "Try again" button that calls `onRetry` |
 
 `ErrorState`, and `EmptyState` given `onAction`, take a handler, so their
