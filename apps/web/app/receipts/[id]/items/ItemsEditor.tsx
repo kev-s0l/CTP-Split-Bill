@@ -1,6 +1,7 @@
 "use client";
 // Items step editor: restaurant, date, items, totals, the live totals check,
 // Save and Confirm items. Spec: docs/specs/receipts/edit-screen.md.
+import { CheckIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -495,7 +496,7 @@ export function TotalsCheck({
       <p>
         <span className="text-ink-muted">Items add up to </span>
         <span className="font-semibold tabular-nums">{check.itemsCents === null ? "—" : dollars(check.itemsCents)}</span>
-        {items && <span className={cn("ml-2", check.itemsDiff === 0 ? "text-brand" : "text-destructive")}>{items}</span>}
+        <CheckMark diff={check.itemsDiff} text={items} />
       </p>
       {canFillSubtotal && !readOnly && (
         <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: formatCents(check.itemsCents!) })}>
@@ -505,7 +506,7 @@ export function TotalsCheck({
       <p>
         <span className="text-ink-muted">Subtotal + tax + tip is </span>
         <span className="font-semibold tabular-nums">{check.partsCents === null ? "—" : dollars(check.partsCents)}</span>
-        {amounts && <span className={cn("ml-2", check.amountsDiff === 0 ? "text-brand" : "text-destructive")}>{amounts}</span>}
+        <CheckMark diff={check.amountsDiff} text={amounts} />
       </p>
       {canFillTotal && !readOnly && (
         <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: formatCents(check.partsCents!) })}>
@@ -513,5 +514,25 @@ export function TotalsCheck({
         </Button>
       )}
     </div>
+  );
+}
+
+// ✓ when a check matches (its words stay for screen readers); ✗ with how far
+// off it is when it doesn't; nothing while a part is missing.
+export function CheckMark({ diff, text }: { diff: number | null; text: string | null }) {
+  if (diff === null || text === null) return null;
+  if (diff === 0) {
+    return (
+      <span className="ml-2 inline-flex items-center align-middle text-brand">
+        <CheckIcon aria-hidden="true" className="size-5" strokeWidth={3} />
+        <span className="sr-only">{text}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="ml-2 inline-flex items-center gap-1 align-middle text-destructive">
+      <XIcon aria-hidden="true" className="size-5" strokeWidth={3} />
+      <span>{text}</span>
+    </span>
   );
 }

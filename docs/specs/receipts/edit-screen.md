@@ -77,10 +77,13 @@ filling totals has to be quick, especially on a phone.
 
 - A panel under the totals fields updates as the organizer types, computed
   in integer cents from the form (not from the last save):
-  - **Items** add up to $X. Next to Subtotal: "Matches", "Items are $2.50
-    short of the subtotal" or "Items are $2.50 over the subtotal".
-  - **Subtotal + tax + tip** (empty tip counts as 0) next to Total:
-    "Matches" or "$1.00 short" / "$1.00 over".
+  - **Items** add up to $X, compared with Subtotal.
+  - **Subtotal + tax + tip** (empty tip counts as 0), compared with Total.
+  - Each shows a green check (✓) when it matches, or a red cross (✗) with
+    how far off it is: "Items are $2.50 short of the subtotal" / "over the
+    subtotal", or "$1.00 short" / "$1.00 over". Nothing shows while a part
+    is missing. The icons are decorative; a screen reader hears "Matches" or
+    the short/over text.
 - When Subtotal is empty and there is at least one priced item, a **Use items
   total** button fills it. When Total is empty and Subtotal and Tax are
   filled, a **Use subtotal + tax + tip** button fills it.
@@ -95,7 +98,7 @@ filling totals has to be quick, especially on a phone.
 - **Confirm items** is always enabled (except while saving or read-only).
   Pressing it checks first, without a request: the form must be valid, have
   at least one item, have Subtotal, Tax and Total filled, and both totals
-  checks must say "Matches". If not, nothing is sent; the reasons show in an
+  checks must match (✓). If not, nothing is sent; the reasons show in an
   alert above the buttons ("Add at least one item", "Fill in the subtotal,
   tax and total", "Items don't add up to the subtotal yet", "Subtotal + tax
   + tip doesn't match the total yet", and "Fix the highlighted fields") and

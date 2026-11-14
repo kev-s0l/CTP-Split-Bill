@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push() {}, replace() {}, refresh() {} }) }));
 
 const form = await import("../app/receipts/[id]/items/receipt-form");
-const { ItemsEditor } = await import("../app/receipts/[id]/items/ItemsEditor");
+const { CheckMark, ItemsEditor } = await import("../app/receipts/[id]/items/ItemsEditor");
 const { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } = await import("../app/components/ui/table");
 const { LEAVE_MESSAGE, installLeaveGuard } = await import("../app/receipts/[id]/participants/leave-guard");
 
@@ -270,6 +270,32 @@ describe("renders", () => {
   it("mismatched: the totals check says how far off, in a live region", () => {
     const html = render({ subtotal: "22.50", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
     expect(html).toMatch(/role="status" aria-live="polite"[\s\S]*Items are \$2\.50 short of the subtotal/);
+  });
+
+  it("a match is a check, with Matches only for screen readers", () => {
+    const html = renderToStaticMarkup(h(CheckMark, { diff: 0, text: "Matches" }));
+    expect(html).toMatch(/<svg[^>]*lucide-check[^>]*aria-hidden="true"|<svg[^>]*aria-hidden="true"[^>]*lucide-check/);
+    expect(html).toContain('<span class="sr-only">Matches</span>');
+    expect(html).not.toContain("lucide-x");
+  });
+
+  it("a mismatch is a cross with how far off it is, visible", () => {
+    const html = renderToStaticMarkup(h(CheckMark, { diff: 250, text: "Items are $2.50 short of the subtotal" }));
+    expect(html).toContain("lucide-x");
+    expect(html).toContain("<span>Items are $2.50 short of the subtotal</span>");
+    expect(html).not.toContain("sr-only");
+  });
+
+  it("shows nothing while a part is missing", () => {
+    expect(renderToStaticMarkup(h(CheckMark, { diff: null, text: null }))).toBe("");
+  });
+
+  it("the filled receipt shows two checks and no visible Matches", () => {
+    const html = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(html.match(/lucide-check/g)).toHaveLength(2);
+    // Every "Matches" is screen-reader only.
+    expect(html.split(">Matches<").length - 1).toBe(2);
+    expect(html.split('sr-only">Matches<').length - 1).toBe(2);
   });
 
   it("offers Use items total when the subtotal is empty", () => {
