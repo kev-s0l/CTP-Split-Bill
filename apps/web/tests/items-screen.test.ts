@@ -1,0 +1,260 @@
+// Items step (docs/specs/receipts/edit-screen.md): field and row checks, the
+// totals check in cents, Confirm's pre-check, the Save/Confirm requests, the
+// Table primitive, and static renders of each state. No DOM, no database.
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push() {}, replace() {}, refresh() {} }) }));
+
+const form = await import("../app/receipts/[id]/items/receipt-form");
+const { ItemsEditor } = await import("../app/receipts/[id]/items/ItemsEditor");
+const { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } = await import("../app/components/ui/table");
+const { LEAVE_MESSAGE, installLeaveGuard } = await import("../app/receipts/[id]/participants/leave-guard");
+
+const { MESSAGES } = form;
+type ReceiptForm = import("../app/receipts/[id]/items/receipt-form").ReceiptForm;
+
+const row = (key: string, name: string, price: string, qty = "1") => ({ key, name, qty, price });
+
+function f(overrides: Partial<ReceiptForm> = {}): ReceiptForm {
+  return {
+    merchant: "Thai Place",
+    date: "2026-11-02",
+    subtotal: "20.00",
+    tax: "1.80",
+    tip: "3.20",
+    total: "25.00",
+    rows: [row("a", "Pad Thai", "14.00"), row("b", "Tea", "6.00")],
+    ...overrides,
+  };
+}
+
+function detail(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "r1", revision: 4, status: "DRAFT", picksOpenedAt: null, reviewedAt: null,
+    merchantName: "Thai Place", purchasedAt: new Date("2026-11-02T12:00:00Z"),
+    subtotal: "20", tax: "1.8", tip: null, total: "21.80",
+    items: [
+      { name: "Pad Thai", quantity: "10", totalPrice: "14" },
+      { name: null, quantity: null, totalPrice: null },
+    ],
+    ...overrides,
+  };
+}
+
+describe("loading a receipt into the form", () => {
+  it("formats money, keeps whole quantities, and fills blanks from nulls", () => {
+    const editor = form.toEditorReceipt(detail());
+    expect(editor).toMatchObject({ id: "r1", revision: 4, pickingOpen: false, reviewed: false });
+    expect(editor.form).toMatchObject({ merchant: "Thai Place", date: "2026-11-02", subtotal: "20.00", tax: "1.80", tip: "", total: "21.80" });
+    expect(editor.form.rows.map(({ name, qty, price }) => ({ name, qty, price }))).toEqual([
+      { name: "Pad Thai", qty: "10", price: "14.00" },
+      { name: "", qty: "1", price: "" },
+    ]);
+  });
+
+  it("reads picking open and confirmation", () => {
+    const editor = form.toEditorReceipt(detail({ picksOpenedAt: new Date(), reviewedAt: new Date() }));
+    expect([editor.pickingOpen, editor.reviewed]).toEqual([true, true]);
+  });
+});
+
+describe("field and row checks", () => {
+  it("accepts amounts with up to two decimals and rejects anything else", () => {
+    for (const ok of ["0", "12", "12.5", "12.50", "9999999999.99"]) expect(form.toCents(ok)).not.toBeNull();
+    for (const bad of ["12.345", "-1", "1,00", "abc", "", "12345678901"]) expect(form.toCents(bad)).toBeNull();
+    expect(form.formErrors(f({ tax: "1.805" })).fields).toEqual({ tax: MESSAGES.money });
+    expect(form.formErrors(f({ tip: "" })).fields).toEqual({});
+  });
+
+  it("needs a name, a quantity above 0 and a price on each row", () => {
+    const errors = form.formErrors(f({ rows: [row("a", "", "4.00", "0"), row("b", "Tea", "x")] }));
+    expect(errors.rows).toEqual({
+      a: { name: MESSAGES.name, qty: MESSAGES.qty },
+      b: { price: MESSAGES.money },
+    });
+    expect(form.formErrors(f({ rows: [row("a", "Tea", "4", "1.2345")] })).rows.a).toEqual({ qty: MESSAGES.qty });
+  });
+
+  it("drops completely empty rows instead of flagging them", () => {
+    const withBlank = f({ rows: [row("a", "Pad Thai", "14.00"), row("x", "  ", ""), row("b", "Tea", "6.00")] });
+    expect(form.formErrors(withBlank).rows).toEqual({});
+    expect(form.itemRows(withBlank).map((r) => r.key)).toEqual(["a", "b"]);
+  });
+
+  it("caps the restaurant name at 200 characters", () => {
+    expect(form.formErrors(f({ merchant: "x".repeat(201) })).merchant).toBe(MESSAGES.long);
+    expect(form.formErrors(f({ merchant: "x".repeat(200) })).merchant).toBeUndefined();
+  });
+});
+
+describe("totals check", () => {
+  it("matches when items equal the subtotal and the parts equal the total", () => {
+    const t = form.totals(f());
+    expect(t).toEqual({ itemsCents: 2000, itemsDiff: 0, amountsDiff: 0, partsCents: 2500 });
+    expect(form.itemsCheckText(t.itemsDiff)).toBe("Matches");
+    expect(form.amountsCheckText(t.amountsDiff)).toBe("Matches");
+  });
+
+  it("says short or over by the exact amount", () => {
+    expect(form.itemsCheckText(form.totals(f({ subtotal: "22.50" })).itemsDiff)).toBe("Items are $2.50 short of the subtotal");
+    expect(form.itemsCheckText(form.totals(f({ subtotal: "19.00" })).itemsDiff)).toBe("Items are $1.00 over the subtotal");
+    expect(form.amountsCheckText(form.totals(f({ total: "26.00" })).amountsDiff)).toBe("$1.00 short");
+    expect(form.amountsCheckText(form.totals(f({ total: "24.99" })).amountsDiff)).toBe("$0.01 over");
+  });
+
+  it("counts an empty tip as 0 and has no answer while a part is missing", () => {
+    expect(form.totals(f({ tip: "", total: "21.80" })).amountsDiff).toBe(0);
+    expect(form.totals(f({ tax: "" })).amountsDiff).toBeNull();
+    expect(form.totals(f({ rows: [row("a", "Pad Thai", "")] })).itemsCents).toBeNull();
+  });
+
+  it("adds in cents, so 0.10 + 0.20 is exactly 0.30", () => {
+    const t = form.totals(f({ subtotal: "0.30", rows: [row("a", "A", "0.10"), row("b", "B", "0.20")] }));
+    expect(t.itemsDiff).toBe(0);
+  });
+});
+
+describe("Confirm's pre-check", () => {
+  it("is empty when everything is filled and matches", () => {
+    expect(form.confirmProblems(f())).toEqual([]);
+  });
+
+  it("asks for an item first, focusing Add item", () => {
+    expect(form.confirmProblems(f({ rows: [] }))[0]).toEqual({ message: MESSAGES.noItems, focusId: "add-item" });
+  });
+
+  it("asks for the subtotal, tax and total, focusing the first empty one", () => {
+    expect(form.confirmProblems(f({ tax: "", total: "" }))).toEqual([{ message: MESSAGES.missingTotals, focusId: "receipt-tax" }]);
+  });
+
+  it("names each mismatch, focusing Subtotal for the items and Total for the parts", () => {
+    expect(form.confirmProblems(f({ subtotal: "22.50", total: "27.50" }))).toEqual([
+      { message: MESSAGES.itemsMismatch, focusId: "receipt-subtotal" },
+    ]);
+    expect(form.confirmProblems(f({ total: "26.00" }))).toEqual([{ message: MESSAGES.amountsMismatch, focusId: "receipt-total" }]);
+  });
+
+  it("points invalid fields at the first bad one", () => {
+    expect(form.confirmProblems(f({ rows: [row("a", "Pad Thai", "14.00"), row("b", "", "6.00")] }))[0]).toEqual({
+      message: MESSAGES.fixFields,
+      focusId: "b-name",
+    });
+    expect(form.confirmProblems(f({ tip: "3.205" }))[0]).toEqual({ message: MESSAGES.fixFields, focusId: "receipt-tip" });
+  });
+});
+
+describe("Save and Confirm requests", () => {
+  const saved = f();
+
+  it("numbers lines in order and derives the unit price from the line total", () => {
+    const body = form.itemsBody(f({ rows: [row("a", " Wings ", "10.00", "3"), row("x", "", ""), row("b", "Tea", "6", "1.500")] }), 7);
+    expect(body).toEqual({
+      expectedRevision: 7,
+      items: [
+        { lineNumber: 1, name: "Wings", quantity: "3", unitPrice: "3.33", totalPrice: "10.00" },
+        { lineNumber: 2, name: "Tea", quantity: "1.5", unitPrice: "4.00", totalPrice: "6.00" },
+      ],
+    });
+  });
+
+  it("sends only a PATCH when only fields changed", () => {
+    expect(form.savePlan(f({ merchant: "Thai House" }), saved, false)).toEqual({ items: false, patch: { merchantName: "Thai House" } });
+  });
+
+  it("sends only the items when only items changed", () => {
+    expect(form.savePlan(f({ rows: [row("a", "Pad Thai", "15.00"), row("b", "Tea", "6.00")] }), saved, false)).toEqual({ items: true, patch: null });
+  });
+
+  it("sends both, and Confirm always adds reviewConfirmed", () => {
+    const changed = f({ tip: "4.00", rows: [row("a", "Pad Thai", "14.00")] });
+    expect(form.savePlan(changed, saved, true)).toEqual({ items: true, patch: { tip: "4.00", reviewConfirmed: true } });
+    expect(form.savePlan(saved, saved, true)).toEqual({ items: false, patch: { reviewConfirmed: true } });
+    expect(form.savePlan(saved, saved, false)).toEqual({ items: false, patch: null });
+  });
+
+  it("saves the date at noon UTC and empty fields as null", () => {
+    expect(form.changedFields(f({ date: "2026-12-31", merchant: "  " }), saved)).toEqual({
+      merchantName: null,
+      purchasedAt: "2026-12-31T12:00:00.000Z",
+    });
+  });
+
+  it("isn't dirty for formatting-only differences", () => {
+    expect(form.isDirty(f({ subtotal: "20", rows: [row("z", "Pad Thai", "14", "1.0"), row("y", "Tea", "6.0")] }), saved)).toBe(false);
+  });
+});
+
+describe("leave guard", () => {
+  it("asks with the Items screen's own message", () => {
+    const target = new EventTarget();
+    const asked: string[] = [];
+    installLeaveGuard(target, (m) => (asked.push(m), true), "items message");
+    target.dispatchEvent(new Event("submit"));
+    expect(asked).toEqual(["items message"]);
+    const other: string[] = [];
+    installLeaveGuard(new EventTarget(), () => true);
+    const t2 = new EventTarget();
+    installLeaveGuard(t2, (m) => (other.push(m), true));
+    t2.dispatchEvent(new Event("submit"));
+    expect(other).toEqual([LEAVE_MESSAGE]);
+  });
+});
+
+describe("renders", () => {
+  const render = (overrides: Record<string, unknown> = {}) =>
+    renderToStaticMarkup(h(ItemsEditor, { initial: form.toEditorReceipt(detail(overrides)) }));
+
+  it("Table primitive renders its slots", () => {
+    const html = renderToStaticMarkup(
+      h(Table, null, h(TableHeader, null, h(TableRow, null, h(TableHead, null, "Item"))), h(TableBody, null, h(TableRow, null, h(TableCell, null, "Tea")))),
+    );
+    for (const slot of ["table-container", "table", "table-header", "table-body", "table-row", "table-head", "table-cell"]) {
+      expect(html).toContain(`data-slot="${slot}"`);
+    }
+    expect(html).toMatch(/<th[^>]*>Item<\/th>[\s\S]*<td[^>]*>Tea<\/td>/);
+  });
+
+  it("empty receipt: No items yet with Add item", () => {
+    const html = render({ items: [] });
+    expect(html).toContain("No items yet");
+    expect(html).toMatch(/<button[^>]*>Add item<\/button>/);
+  });
+
+  it("filled: restaurant first, labelled item inputs, money inputs, and both buttons enabled", () => {
+    const html = render();
+    expect(html.indexOf('id="receipt-merchant"')).toBeLessThan(html.indexOf("Items</h2>"));
+    expect(html).toMatch(/<input[^>]*id="receipt-subtotal"[^>]*inputMode="decimal"|<input[^>]*inputMode="decimal"[^>]*id="receipt-subtotal"/i);
+    expect(html).toMatch(/<label[^>]*class="[^"]*md:sr-only[^"]*"[^>]*>Item<span class="sr-only"> \(item 1\)<\/span><\/label>/);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save<\/button>/);
+    expect(html.match(/<button[^>]*>Confirm items<\/button>/)![0]).not.toContain('disabled=""');
+    expect(html).toContain("+ Add item");
+  });
+
+  it("mismatched: the totals check says how far off, in a live region", () => {
+    const html = render({ subtotal: "22.50", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(html).toMatch(/role="status" aria-live="polite"[\s\S]*Items are \$2\.50 short of the subtotal/);
+  });
+
+  it("offers Use items total when the subtotal is empty", () => {
+    expect(render({ subtotal: null })).toContain("Use items total");
+    expect(render()).not.toContain("Use items total");
+  });
+
+  it("picking open: read-only with the pause banner", () => {
+    const html = render({ picksOpenedAt: new Date() });
+    expect(html).toContain("Picking is open. Pause it to make changes.");
+    expect(html).toMatch(/<button[^>]*>Pause picking<\/button>/);
+    expect(html).toMatch(/<fieldset[^>]*disabled=""/);
+    expect(html).not.toContain("Confirm items");
+  });
+
+  it("finalized: read-only with no banner and no buttons", () => {
+    const html = render({ status: "FINALIZED", picksOpenedAt: new Date() });
+    expect(html).not.toContain("Pause picking");
+    expect(html).not.toContain("Confirm items");
+    expect(html).not.toContain("+ Add item");
+    expect(html).toMatch(/<fieldset[^>]*disabled=""/);
+  });
+});
