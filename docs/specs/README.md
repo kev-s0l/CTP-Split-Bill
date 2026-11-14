@@ -50,6 +50,7 @@ Every feature template section is required. See ../../CONTRIBUTING.md.
 | [finalization](bills/split-allocation.md) | Exact-cent server calculation and immutable bill snapshots |
 | [bill reads](bills/list.md) | Owner-only bill breakdowns and outstanding amounts |
 | [bills list screen](bills/list-screen.md) | Home screen summaries, status badges and formatted receipt cards |
+| [items screen](receipts/edit-screen.md) | Correct the restaurant, items and totals, see whether they add up, and confirm them |
 
 ## Draft features (under review)
 

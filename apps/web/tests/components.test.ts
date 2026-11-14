@@ -99,6 +99,13 @@ describe("LoadingState", () => {
 });
 
 describe("EmptyState", () => {
+  it("puts actionId on the action, link or button, so focus can move to it", () => {
+    const link = renderToStaticMarkup(h(EmptyState, { title: "t", message: "m", actionLabel: "Go", actionHref: "/x", actionId: "go" }));
+    expect(link).toMatch(/<a[^>]*id="go"[^>]*>Go<\/a>/);
+    const button = renderToStaticMarkup(h(EmptyState, { title: "t", message: "m", actionLabel: "Add", onAction: () => {}, actionId: "add" }));
+    expect(button).toMatch(/<button[^>]*id="add"[^>]*>Add<\/button>/);
+  });
+
   it("renders its copy and one primary action link", () => {
     const html = renderToStaticMarkup(
       h(EmptyState, {

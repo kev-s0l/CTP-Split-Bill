@@ -8,12 +8,13 @@ export const LEAVE_MESSAGE = "You have unsaved changes to the people on this rec
 export function installLeaveGuard(
   target: EventTarget,
   confirmLeave: (message: string) => boolean,
+  message: string = LEAVE_MESSAGE,
 ): () => void {
   const onBeforeUnload = (e: Event) => e.preventDefault();
   // Capture phase on the window runs before React's root listener, so a
   // cancelled submit never reaches the form action.
   const onSubmit = (e: Event) => {
-    if (confirmLeave(LEAVE_MESSAGE)) return;
+    if (confirmLeave(message)) return;
     e.preventDefault();
     e.stopPropagation();
   };

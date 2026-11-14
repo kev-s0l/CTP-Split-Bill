@@ -18,6 +18,7 @@ vi.mock("next/navigation", () => ({
   redirect: mocks.redirect,
   notFound: mocks.notFound,
   usePathname: () => mocks.pathname,
+  useRouter: () => ({ refresh() {} }),
 }));
 vi.mock("@project/domain", async (importOriginal) => ({
   ...await importOriginal<typeof import("@project/domain")>(),
@@ -28,7 +29,7 @@ const { ApiError } = await import("@project/domain");
 const { receiptSteps } = await import("@project/domain/steps");
 const { loadStep } = await import("../app/receipts/[id]/step-guard");
 const { default: ReceiptPage } = await import("../app/receipts/[id]/page");
-const { StepBar } = await import("../app/receipts/[id]/StepBar");
+const { StepBar, stepChanged } = await import("../app/receipts/[id]/StepBar");
 
 function detail(overrides: Record<string, unknown> = {}) {
   return {
@@ -139,5 +140,12 @@ describe("step bar", () => {
     }
     expect(html.match(/aria-disabled="true"/g)).toHaveLength(4);
     expect(html).toContain("Wait for the scan to finish");
+  });
+});
+
+describe("step bar freshness", () => {
+  it("re-renders the layout when the step in the URL changes, not on the first render", () => {
+    expect(stepChanged("/receipts/r1/items", "/receipts/r1/participants")).toBe(true);
+    expect(stepChanged("/receipts/r1/items", "/receipts/r1/items")).toBe(false);
   });
 });

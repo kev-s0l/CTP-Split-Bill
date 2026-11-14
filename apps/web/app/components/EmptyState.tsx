@@ -8,15 +8,21 @@ type EmptyStateAction =
   | { actionHref: string; onAction?: never }
   | { onAction: () => void; actionHref?: never };
 
+// actionId lets a caller move focus to the action (for example after a check
+// that says "add one first").
+
+
 export function EmptyState({
   title,
   message,
   actionLabel,
+  actionId,
   ...action
 }: {
   title: string;
   message: string;
   actionLabel: string;
+  actionId?: string;
 } & EmptyStateAction) {
   return (
     <Card>
@@ -26,12 +32,12 @@ export function EmptyState({
           <p className="text-ink-muted">{message}</p>
         </div>
         {action.onAction ? (
-          <Button type="button" className="min-h-11" onClick={action.onAction}>
+          <Button id={actionId} type="button" className="min-h-11" onClick={action.onAction}>
             {actionLabel}
           </Button>
         ) : (
           <Button asChild className="min-h-11">
-            <a href={action.actionHref}>{actionLabel}</a>
+            <a id={actionId} href={action.actionHref}>{actionLabel}</a>
           </Button>
         )}
       </CardContent>
