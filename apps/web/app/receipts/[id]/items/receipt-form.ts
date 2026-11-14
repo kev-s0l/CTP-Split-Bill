@@ -269,18 +269,36 @@ export function totals(form: ReceiptForm): Totals {
   };
 }
 
-// What "Set subtotal to $X" would write: the items total, offered when the
-// subtotal is empty or doesn't match it. Null when there's nothing to offer.
+// What "Set subtotal to $X" would write: the items total, offered only while
+// Subtotal is empty (a scan that couldn't read it). A filled Subtotal is the
+// printed number the items are checked against, so it is never offered for
+// overwriting; see differenceHint. Null when there's nothing to offer.
 export function setSubtotalTo(form: ReceiptForm, t: Totals): string | null {
-  if (itemRows(form).length === 0 || t.itemsCents === null || t.itemsDiff === 0) return null;
+  if (form.subtotal.trim() !== "" || itemRows(form).length === 0 || t.itemsCents === null) return null;
   return displayMoney(t.itemsCents);
 }
 
-// What "Set total to $X" would write: subtotal + tax + tip, offered when the
-// total is empty or doesn't match it.
-export function setTotalTo(t: Totals): string | null {
-  if (t.partsCents === null || t.amountsDiff === 0) return null;
+// What "Set total to $X" would write: subtotal + tax + tip, offered only while
+// Total is empty.
+export function setTotalTo(form: ReceiptForm, t: Totals): string | null {
+  if (form.total.trim() !== "" || t.partsCents === null) return null;
   return displayMoney(t.partsCents);
+}
+
+// Where to look when the items don't match a filled-in Subtotal.
+export function differenceHint(diff: number | null): string | null {
+  if (diff === null || diff === 0) return null;
+  return diff > 0
+    ? `The items are ${dollars(diff)} short. A line may be missing or typed too low. Check the lines against the receipt.`
+    : `The items are ${dollars(diff)} over. A line may be extra or typed too high. Check the lines against the receipt.`;
+}
+
+// Lines whose amount equals the excess when the items are over the subtotal:
+// the likeliest extra or duplicated line.
+export function linesMatchingDifference(form: ReceiptForm, t: Totals): Set<string> {
+  if (t.itemsDiff === null || t.itemsDiff >= 0) return new Set();
+  const excess = -t.itemsDiff;
+  return new Set(itemRows(form).filter((row) => toCents(row.price) === excess).map((row) => row.key));
 }
 
 export function itemsCheckText(diff: number | null): string | null {

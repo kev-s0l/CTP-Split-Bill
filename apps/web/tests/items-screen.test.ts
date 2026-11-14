@@ -115,23 +115,50 @@ describe("tidying amounts", () => {
 });
 
 describe("set subtotal / set total", () => {
-  it("offers the items total for the subtotal when it's empty or off, not when it matches", () => {
+  it("offers the items total only while Subtotal is empty", () => {
     expect(form.setSubtotalTo(f({ subtotal: "" }), form.totals(f({ subtotal: "" })))).toBe("20.00");
-    expect(form.setSubtotalTo(f({ subtotal: "22.50" }), form.totals(f({ subtotal: "22.50" })))).toBe("20.00");
+    // A filled Subtotal is the printed number: never offered for overwriting, even when it's off.
+    expect(form.setSubtotalTo(f({ subtotal: "22.50" }), form.totals(f({ subtotal: "22.50" })))).toBeNull();
     expect(form.setSubtotalTo(f(), form.totals(f()))).toBeNull();
-    expect(form.setSubtotalTo(f({ rows: [] }), form.totals(f({ rows: [] })))).toBeNull();
+    expect(form.setSubtotalTo(f({ subtotal: "", rows: [] }), form.totals(f({ subtotal: "", rows: [] })))).toBeNull();
   });
 
-  it("offers subtotal + tax + tip for the total when it's empty or off, not when it matches", () => {
-    expect(form.setTotalTo(form.totals(f({ total: "" })))).toBe("25.00");
-    expect(form.setTotalTo(form.totals(f({ total: "26.00" })))).toBe("25.00");
-    expect(form.setTotalTo(form.totals(f()))).toBeNull();
-    expect(form.setTotalTo(form.totals(f({ tax: "" })))).toBeNull();
+  it("offers subtotal + tax + tip only while Total is empty", () => {
+    expect(form.setTotalTo(f({ total: "" }), form.totals(f({ total: "" })))).toBe("25.00");
+    expect(form.setTotalTo(f({ total: "26.00" }), form.totals(f({ total: "26.00" })))).toBeNull();
+    expect(form.setTotalTo(f({ total: "", tax: "" }), form.totals(f({ total: "", tax: "" })))).toBeNull();
+  });
+
+  it("can't be chained into rewriting both printed totals", () => {
+    // Subtotal 22.50 is off from items 20.00; neither Set is offered, so the
+    // organizer looks for the line instead of overwriting the receipt.
+    const off = f({ subtotal: "22.50", total: "27.50" });
+    expect(form.setSubtotalTo(off, form.totals(off))).toBeNull();
+    expect(form.setTotalTo(off, form.totals(off))).toBeNull();
   });
 
   it("groups large amounts like the fields do", () => {
     const big = f({ subtotal: "", rows: [row("a", "Wine", "1,250.00")] });
     expect(form.setSubtotalTo(big, form.totals(big))).toBe("1,250.00");
+  });
+});
+
+describe("finding the difference", () => {
+  it("says which way the items are off and where to look", () => {
+    expect(form.differenceHint(250)).toBe("The items are $2.50 short. A line may be missing or typed too low. Check the lines against the receipt.");
+    expect(form.differenceHint(-1000)).toBe("The items are $10.00 over. A line may be extra or typed too high. Check the lines against the receipt.");
+    expect(form.differenceHint(0)).toBeNull();
+    expect(form.differenceHint(null)).toBeNull();
+  });
+
+  it("points at lines whose amount equals the excess when the items are over", () => {
+    const over = f({ subtotal: "14.00", rows: [row("a", "Pad Thai", "14.00"), row("b", "Tea", "6.00"), row("c", "Rice", "3.00")] });
+    expect([...form.linesMatchingDifference(over, form.totals(over))]).toEqual([]); // over by 9.00, no 9.00 line
+    const dup = f({ subtotal: "20.00", rows: [row("a", "Pad Thai", "14.00"), row("b", "Tea", "6.00"), row("c", "Tea", "6.00")] });
+    expect([...form.linesMatchingDifference(dup, form.totals(dup))]).toEqual(["b", "c"]);
+    // Short or matching: nothing to point at.
+    expect(form.linesMatchingDifference(f({ subtotal: "22.50" }), form.totals(f({ subtotal: "22.50" }))).size).toBe(0);
+    expect(form.linesMatchingDifference(f(), form.totals(f())).size).toBe(0);
   });
 });
 
@@ -511,7 +538,7 @@ describe("renders", () => {
     expect(render({ subtotal: "22.50" })).not.toContain("Everything adds up");
   });
 
-  it("only the results are live; the Use buttons sit outside the live region", () => {
+  it("only the results are live; the Set buttons sit outside the live region", () => {
     const html = render({ subtotal: null });
     const region = liveRegion(html);
     expect(region).toContain("Items add up to");
@@ -525,18 +552,31 @@ describe("renders", () => {
     expect(html).toMatch(/<span class="[^"]*text-brand[^"]*"><svg[^>]*lucide-check[^>]*>[\s\S]*?<\/svg>Confirmed<\/span>/);
   });
 
-  it("offers Set subtotal / Set total with the amount whenever a field doesn't match, and never when it does", () => {
-    // Empty subtotal and total.
+  it("offers Set subtotal / Set total only for empty fields, and the difference hint for filled ones", () => {
     const empty = render({ subtotal: null, total: null, items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
     expect(empty).toContain(">Set subtotal to $20.00</button>");
-    // A mismatched (not empty) subtotal and total.
     const off = render({ subtotal: "22.50", total: "30", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
-    expect(off).toContain(">Set subtotal to $20.00</button>");
-    expect(off).toContain(">Set total to $24.30</button>");
-    // Everything matches: no buttons.
+    expect(off).not.toContain("Set subtotal to");
+    expect(off).not.toContain("Set total to");
+    // The hint is part of the live result.
+    expect(liveRegion(off)).toContain("The items are $2.50 short. A line may be missing or typed too low.");
     const ok = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
     expect(ok).not.toContain("Set subtotal to");
-    expect(ok).not.toContain("Set total to");
+    expect(ok).not.toContain("Check the lines against the receipt");
+  });
+
+  it("marks a line whose amount equals the excess, and describes its input with it", () => {
+    const html = render({
+      subtotal: "20",
+      items: [
+        { name: "Pad Thai", quantity: "1", totalPrice: "14" },
+        { name: "Tea", quantity: "1", totalPrice: "6" },
+        { name: "Tea", quantity: "1", totalPrice: "6" },
+      ],
+    });
+    expect(html.match(/Same amount as the difference/g)).toHaveLength(2);
+    expect(html).toMatch(/aria-describedby="line-2-suspect"/);
+    expect(html).not.toMatch(/aria-describedby="line-1-suspect"/);
   });
 
   it("picking open: read-only with the pause banner", () => {

@@ -30,6 +30,8 @@ import {
   hasErrors,
   isBlankRow,
   setSubtotalTo,
+  differenceHint,
+  linesMatchingDifference,
   setTotalTo,
   isDirty,
   itemRows,
@@ -51,6 +53,7 @@ const CONFLICT = "This receipt changed somewhere else. Reload to see the latest.
 // Toasts on this screen go to the top: the sticky action bar owns the bottom,
 // and a toast over it would take a tap meant for Confirm.
 const TOAST_POSITION = "top-center" as const;
+export const UNDO_MS = 10000;
 
 type SaveError = { message: string; conflict: boolean };
 
@@ -69,6 +72,11 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
   const [saveError, setSaveError] = useState<SaveError | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const saveErrorRef = useRef<HTMLDivElement>(null);
+  // A failed save moves focus to its message, so it's both seen and heard.
+  useEffect(() => {
+    if (saveError) saveErrorRef.current?.focus();
+  }, [saveError]);
 
   const finalized = saved.status === "FINALIZED";
   const readOnly = finalized || saved.pickingOpen;
@@ -137,7 +145,9 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
     if (isBlankRow(removed)) return;
     toast(`Removed ${removed.name.trim() || `item ${index + 1}`}`, {
       position: TOAST_POSITION,
-      duration: 6000,
+      // Long enough to reach from the row by thumb or keyboard; the toast
+      // also holds while it's hovered.
+      duration: UNDO_MS,
       action: {
         label: "Undo",
         onClick: () => {
@@ -304,6 +314,7 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
               onChange={updateRow}
               onRemove={removeRow}
               onEnterInPrice={addRow}
+              suspects={linesMatchingDifference(form, check)}
             />
           )}
           {!readOnly && form.rows.length > 0 && (
@@ -358,22 +369,18 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
         </section>
       </fieldset>
 
-      {saveError && (
-        <div role="alert" className="space-y-2 rounded-md border border-destructive p-3 text-destructive">
-          <p>{saveError.message}</p>
-          {saveError.conflict && (
-            <Button type="button" variant="outline" className="min-h-11" onClick={reload}>
-              Reload
-            </Button>
-          )}
-        </div>
-      )}
+      {/* Read-only screens have no action bar, so their errors (a failed
+          Pause picking) show here. */}
+      {readOnly && saveError && <SaveErrorAlert error={saveError} onReload={reload} errorRef={saveErrorRef} />}
 
       {!readOnly && (
         // Sticks to the bottom of the screen while the items scroll, so Save
         // and Confirm stay in reach on a long receipt. Whether things add up
         // is shown once, in the totals panel.
         <div data-testid="action-bar" className="sticky bottom-0 z-10 -mx-4 space-y-2 border-t border-line bg-canvas px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {/* In the sticky bar, so a failed save is in view wherever the
+              organizer is on a long list. */}
+          {saveError && <SaveErrorAlert error={saveError} onReload={reload} errorRef={saveErrorRef} />}
           {saved.reviewed && dirty && (
             <p className="text-sm text-ink-muted">Changing items or totals means confirming them again.</p>
           )}
@@ -466,6 +473,7 @@ export function ItemsTable({
   onChange,
   onRemove,
   onEnterInPrice,
+  suspects,
 }: {
   rows: FormRow[];
   errors: Record<string, { name?: string; qty?: string; price?: string }>;
@@ -475,6 +483,8 @@ export function ItemsTable({
   onChange: (key: string, patch: Partial<FormRow>) => void;
   onRemove: (key: string) => void;
   onEnterInPrice: () => void;
+  // Lines whose amount equals the difference when the items are over.
+  suspects: Set<string>;
 }) {
   return (
     <Table className="max-md:block">
@@ -493,18 +503,26 @@ export function ItemsTable({
           const hint = eachHint(row);
           const each = eachPrice(row);
           const hintId = `${row.key}-each`;
+          const suspect = suspects.has(row.key);
+          const suspectId = `${row.key}-suspect`;
           const numeric = (field: "name" | "qty" | "price") => field !== "name";
           const input = (field: "name" | "qty" | "price", label: string, props: React.ComponentProps<typeof Input>) => {
             const id = rowFieldId(row.key, field);
             const error = shown(id, e[field]);
-            const describedBy = [error ? `${id}-error` : null, field === "price" && hint ? hintId : null].filter(Boolean).join(" ");
+            const describedBy = [
+              error ? `${id}-error` : null,
+              field === "price" && hint ? hintId : null,
+              field === "price" && suspect ? suspectId : null,
+            ]
+              .filter(Boolean)
+              .join(" ");
             return (
               <div className="space-y-1">
                 <Label htmlFor={id} className="sr-only">
                   {label}
                   <span className="sr-only"> (item {index + 1})</span>
                 </Label>
-                <div className={cn(field === "price" && "flex items-center gap-2")}>
+                <div className={cn(field === "price" && "flex items-center gap-1.5")}>
                   {/* Phones: the price of one sits between Qty and the line
                       total, so the line reads 10 × $2.40 = $24.00. */}
                   {field === "price" && each && (
@@ -528,7 +546,7 @@ export function ItemsTable({
                       className={cn(
                         "min-h-11",
                         numeric(field) && "text-right tabular-nums",
-                        field === "price" && "pl-7",
+                        field === "price" && "pl-7 max-md:pr-2",
                         field === "qty" && "max-md:pl-11",
                       )}
                       aria-invalid={error ? true : undefined}
@@ -541,6 +559,11 @@ export function ItemsTable({
                 {error && (
                   <p id={`${id}-error`} className="text-sm text-destructive">
                     {error}
+                  </p>
+                )}
+                {field === "price" && suspect && (
+                  <p id={suspectId} className="text-right text-sm text-destructive">
+                    Same amount as the difference
                   </p>
                 )}
                 {field === "price" && hint && (
@@ -560,7 +583,7 @@ export function ItemsTable({
             // receipt.
             <TableRow
               key={row.key}
-              className="hover:bg-transparent max-md:grid max-md:grid-cols-[6.5rem_minmax(0,1fr)_2.75rem] max-md:gap-2 max-md:border-line max-md:py-3"
+              className="hover:bg-transparent max-md:grid max-md:grid-cols-[5.25rem_minmax(0,1fr)_2.75rem] max-md:gap-2 max-md:border-line max-md:py-3"
             >
               <TableCell className={cn(cell, "max-md:col-span-2 max-md:row-start-1")}>
                 {input("name", "Item", {
@@ -635,10 +658,11 @@ export function TotalsCheck({
 }) {
   const items = itemsCheckText(check.itemsDiff);
   const amounts = amountsCheckText(check.amountsDiff);
-  // Offered whenever a field doesn't match what it should be (empty,
-  // mistyped or misread), never when it already matches.
+  // Offered only to fill an empty Subtotal or Total; a filled one is the
+  // printed number and gets a hint about where to look instead.
   const setSubtotal = setSubtotalTo(form, check);
-  const setTotal = setTotalTo(check);
+  const setTotal = setTotalTo(form, check);
+  const hint = differenceHint(check.itemsDiff);
   const allMatch = check.itemsDiff === 0 && check.amountsDiff === 0 && itemRows(form).length > 0;
   const fills = !readOnly && (setSubtotal !== null || setTotal !== null);
   return (
@@ -671,6 +695,7 @@ export function TotalsCheck({
           </p>
           <CheckMark diff={check.amountsDiff} text={amounts} />
         </div>
+        {hint && <p className="text-ink-muted">{hint}</p>}
       </div>
       {fills && (
         <div className="flex flex-wrap gap-2">
@@ -708,5 +733,31 @@ export function CheckMark({ diff, text }: { diff: number | null; text: string | 
       <span>{text}</span>
       <XIcon aria-hidden="true" className="size-5 shrink-0" strokeWidth={3} />
     </span>
+  );
+}
+
+function SaveErrorAlert({
+  error,
+  onReload,
+  errorRef,
+}: {
+  error: SaveError;
+  onReload: () => void;
+  errorRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div
+      ref={errorRef}
+      tabIndex={-1}
+      role="alert"
+      className="space-y-2 rounded-md border border-destructive bg-surface p-3 text-destructive outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      <p>{error.message}</p>
+      {error.conflict && (
+        <Button type="button" variant="outline" className="min-h-11" onClick={onReload}>
+          Reload
+        </Button>
+      )}
+    </div>
   );
 }

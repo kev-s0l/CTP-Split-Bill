@@ -95,8 +95,8 @@ filling totals has to be quick, especially on a phone.
   least one item", and after removing the last row).
 - **Remove** is a 44×44px × icon button named "Remove <item name>" (or
   "Remove item 3") for screen readers. It deletes the row at once, with no
-  dialog, and shows a toast "Removed <item name>" with **Undo** for 6
-  seconds; Undo puts the row back at its old position with everything typed
+  dialog, and shows a toast "Removed <item name>" with **Undo** for 10
+  seconds (held while hovered); Undo puts the row back at its old position with everything typed
   in it. Removing a row with no name and no line total shows no toast.
   Removal is otherwise local: nothing is saved until
   Save, and focus moves to the next row's name (or Add item).
@@ -118,12 +118,17 @@ filling totals has to be quick, especially on a phone.
     subtotal", or "$1.00 short of the total" / "$1.00 over the total". Nothing shows while a part
     is missing. The icons are decorative; a screen reader hears "Matches" or
     the short/over text.
-- Below the results, buttons offer to set a field that doesn't match, with
-  the amount in the label: **Set subtotal to $36.50** (the items total)
-  when Subtotal is empty or doesn't match the items, and **Set total to
-  $54.00** (subtotal + tax + tip) when Total is empty or doesn't match.
-  They show only while that check doesn't match, never in the "Everything
-  adds up" state. Pressing one fills the field and moves focus to it.
+- Below the results, while Subtotal is empty and there is at least one
+  priced item, **Set subtotal to $64.00** (the items total) fills it; while
+  Total is empty and Subtotal and Tax are filled, **Set total to $54.00**
+  (subtotal + tax + tip) fills it. Pressing one fills the field and moves
+  focus to it. A filled Subtotal or Total is never offered for overwriting.
+- When the items don't match a filled Subtotal, the live result adds where
+  to look: "The items are $2.50 short. A line may be missing or typed too
+  low. Check the lines against the receipt." (or "… over. A line may be
+  extra or typed too high. …"). When the items are over, any line whose
+  line total equals the excess says "Same amount as the difference" under
+  it, and its input is described by that note.
 - When both checks match and there is at least one item, the panel's
   border turns brand-colored and a line above the two checks says
   "Everything adds up: $16.00" (the total), with "Confirm items, then add
@@ -169,6 +174,10 @@ filling totals has to be quick, especially on a phone.
   **Reload** button; the draft is kept until Reload. **400**: the API's
   message. **401**: the browser goes to `/login`, returning here. A network
   failure keeps the draft and says so.
+- These errors show in the sticky action bar, above the buttons, so they
+  are in view wherever the organizer is on a long list, and focus moves to
+  the message. On a read-only screen (no action bar), an error from Pause
+  picking shows below the totals instead.
 - If the items were saved but the field update then fails, the form keeps
   the saved items and the new revision, and shows the field error; Save
   again sends only the fields.
@@ -210,7 +219,9 @@ filling totals has to be quick, especially on a phone.
 | Items 61.50, subtotal 64.00 | "Items are $2.50 short of the subtotal" |
 | Press Confirm items while items are short | No request; "Items don't add up to the subtotal yet"; focus on Subtotal |
 | Subtotal empty, items 64.00 | Set subtotal to $64.00 fills it; focus moves to Subtotal |
-| Subtotal 66.50, items 64.00 | "Items are $2.50 short of the subtotal" ✗ and Set subtotal to $64.00 |
+| Subtotal 66.50, items 64.00 | "Items are $2.50 short of the subtotal" ✗ and "The items are $2.50 short. A line may be missing or typed too low…"; no Set button |
+| Subtotal 20.00, items Pad Thai 14, Tea 6, Tea 6 | "… $6.00 over …"; both Tea lines say "Same amount as the difference" |
+| Save fails with the network down, scrolled to the top of a long list | The message shows in the sticky bar and takes focus; the draft is kept |
 | Everything matches, press Confirm items | PUT items, PATCH with reviewConfirmed; lands on People |
 | Change only the restaurant name, press Save | One PATCH; "Saved" |
 | Save from a tab with an older revision | Conflict message with Reload; draft kept |
@@ -244,7 +255,7 @@ filling totals has to be quick, especially on a phone.
   bar's Back; the unsaved-changes toast shows, Discard leaves without
   saving, and Save and continue saves first. Save from a second, older tab;
   the conflict message shows.
-- Phone pass at 375px from web.md, and a keyboard-only pass through the
+- Phone pass at 375px from web.md (and 320px: no amount cut off in its field), and a keyboard-only pass through the
   fields, adding and removing rows, and Confirm.
 
 ## Constraints & decisions
@@ -273,13 +284,12 @@ filling totals has to be quick, especially on a phone.
   receipt is typed on a phone; it is the only copy of the buttons. It
   carries no totals status of its own, since that would only repeat the
   totals panel.
-- The set buttons appear on a mismatch, not only on an empty field, so a
-  misread or mistyped total is one tap to fix. They never overwrite
-  silently: the mismatch shows first and the organizer chooses, with the
-  amount in the label. There is no single "recalculate" that rewrites
-  Subtotal and Total from the items, because the printed totals are what
-  the items are checked against; rewriting them would always match and
-  hide a missing or misread line.
+- The set buttons only fill an empty Subtotal or Total (a scan that
+  couldn't read it). A filled one is the number printed on the receipt, so
+  on a mismatch the screen points at the lines instead of offering to
+  overwrite it: otherwise two taps could rewrite both printed totals from
+  the typed items and hide a mistyped line. For the same reason there is no
+  single "recalculate".
 - Removing a row has an undo toast, not a confirmation dialog: deliberate
   removals stay one tap, and a mis-tap is recoverable. Nothing is lost
   until Save, and the leave guard covers abandoning the page.
