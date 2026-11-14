@@ -29,6 +29,8 @@ import {
   formErrors,
   hasErrors,
   isBlankRow,
+  setSubtotalTo,
+  setTotalTo,
   isDirty,
   itemRows,
   itemsBody,
@@ -39,7 +41,6 @@ import {
   rowFieldId,
   savePlan,
   tidyMoney,
-  displayMoney,
   toEditorReceipt,
   totals,
 } from "./receipt-form";
@@ -343,7 +344,17 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
               />
             ))}
           </div>
-          <TotalsCheck form={form} check={check} readOnly={readOnly} onFill={update} />
+          <TotalsCheck
+            form={form}
+            check={check}
+            readOnly={readOnly}
+            onSet={(field, value) => {
+              update({ [field]: value });
+              // The button goes away once its field matches; keep focus on
+              // the field it just set.
+              setFocusId(fieldId(field));
+            }}
+          />
         </section>
       </fieldset>
 
@@ -615,19 +626,21 @@ export function TotalsCheck({
   form,
   check,
   readOnly,
-  onFill,
+  onSet,
 }: {
   form: ReceiptForm;
   check: ReturnType<typeof totals>;
   readOnly: boolean;
-  onFill: (patch: Partial<ReceiptForm>) => void;
+  onSet: (field: "subtotal" | "total", value: string) => void;
 }) {
   const items = itemsCheckText(check.itemsDiff);
   const amounts = amountsCheckText(check.amountsDiff);
-  const canFillSubtotal = form.subtotal.trim() === "" && itemRows(form).length > 0 && check.itemsCents !== null;
-  const canFillTotal = form.total.trim() === "" && check.partsCents !== null;
+  // Offered whenever a field doesn't match what it should be (empty,
+  // mistyped or misread), never when it already matches.
+  const setSubtotal = setSubtotalTo(form, check);
+  const setTotal = setTotalTo(check);
   const allMatch = check.itemsDiff === 0 && check.amountsDiff === 0 && itemRows(form).length > 0;
-  const fills = !readOnly && (canFillSubtotal || canFillTotal);
+  const fills = !readOnly && (setSubtotal !== null || setTotal !== null);
   return (
     <div className={cn("space-y-3 rounded-card border bg-surface p-4 text-sm", allMatch ? "border-brand" : "border-line")}>
       {/* Only the results are live, so a screen reader hears the outcome of a
@@ -661,14 +674,14 @@ export function TotalsCheck({
       </div>
       {fills && (
         <div className="flex flex-wrap gap-2">
-          {canFillSubtotal && (
-            <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: displayMoney(check.itemsCents!) })}>
-              Use items total
+          {setSubtotal !== null && (
+            <Button type="button" variant="outline" className="min-h-11 tabular-nums" onClick={() => onSet("subtotal", setSubtotal)}>
+              Set subtotal to ${setSubtotal}
             </Button>
           )}
-          {canFillTotal && (
-            <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: displayMoney(check.partsCents!) })}>
-              Use subtotal + tax + tip
+          {setTotal !== null && (
+            <Button type="button" variant="outline" className="min-h-11 tabular-nums" onClick={() => onSet("total", setTotal)}>
+              Set total to ${setTotal}
             </Button>
           )}
         </div>

@@ -114,6 +114,27 @@ describe("tidying amounts", () => {
   });
 });
 
+describe("set subtotal / set total", () => {
+  it("offers the items total for the subtotal when it's empty or off, not when it matches", () => {
+    expect(form.setSubtotalTo(f({ subtotal: "" }), form.totals(f({ subtotal: "" })))).toBe("20.00");
+    expect(form.setSubtotalTo(f({ subtotal: "22.50" }), form.totals(f({ subtotal: "22.50" })))).toBe("20.00");
+    expect(form.setSubtotalTo(f(), form.totals(f()))).toBeNull();
+    expect(form.setSubtotalTo(f({ rows: [] }), form.totals(f({ rows: [] })))).toBeNull();
+  });
+
+  it("offers subtotal + tax + tip for the total when it's empty or off, not when it matches", () => {
+    expect(form.setTotalTo(form.totals(f({ total: "" })))).toBe("25.00");
+    expect(form.setTotalTo(form.totals(f({ total: "26.00" })))).toBe("25.00");
+    expect(form.setTotalTo(form.totals(f()))).toBeNull();
+    expect(form.setTotalTo(form.totals(f({ tax: "" })))).toBeNull();
+  });
+
+  it("groups large amounts like the fields do", () => {
+    const big = f({ subtotal: "", rows: [row("a", "Wine", "1,250.00")] });
+    expect(form.setSubtotalTo(big, form.totals(big))).toBe("1,250.00");
+  });
+});
+
 describe("price of one", () => {
   it("is the line total over the quantity, only when Qty isn't 1", () => {
     expect(form.eachPrice(row("a", "Chicken", "24", "10"))).toBe("$2.40");
@@ -495,8 +516,8 @@ describe("renders", () => {
     const region = liveRegion(html);
     expect(region).toContain("Items add up to");
     expect(region).toContain("Subtotal + tax + tip is");
-    expect(region).not.toContain("Use items total");
-    expect(html).toContain(">Use items total</button>");
+    expect(region).not.toContain("Set subtotal to");
+    expect(html).toContain(">Set subtotal to $14.00</button>");
   });
 
   it("a confirmed receipt shows Confirmed with a check, in the brand color", () => {
@@ -504,9 +525,18 @@ describe("renders", () => {
     expect(html).toMatch(/<span class="[^"]*text-brand[^"]*"><svg[^>]*lucide-check[^>]*>[\s\S]*?<\/svg>Confirmed<\/span>/);
   });
 
-  it("offers Use items total when the subtotal is empty", () => {
-    expect(render({ subtotal: null })).toContain("Use items total");
-    expect(render()).not.toContain("Use items total");
+  it("offers Set subtotal / Set total with the amount whenever a field doesn't match, and never when it does", () => {
+    // Empty subtotal and total.
+    const empty = render({ subtotal: null, total: null, items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(empty).toContain(">Set subtotal to $20.00</button>");
+    // A mismatched (not empty) subtotal and total.
+    const off = render({ subtotal: "22.50", total: "30", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(off).toContain(">Set subtotal to $20.00</button>");
+    expect(off).toContain(">Set total to $24.30</button>");
+    // Everything matches: no buttons.
+    const ok = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(ok).not.toContain("Set subtotal to");
+    expect(ok).not.toContain("Set total to");
   });
 
   it("picking open: read-only with the pause banner", () => {

@@ -269,6 +269,20 @@ export function totals(form: ReceiptForm): Totals {
   };
 }
 
+// What "Set subtotal to $X" would write: the items total, offered when the
+// subtotal is empty or doesn't match it. Null when there's nothing to offer.
+export function setSubtotalTo(form: ReceiptForm, t: Totals): string | null {
+  if (itemRows(form).length === 0 || t.itemsCents === null || t.itemsDiff === 0) return null;
+  return displayMoney(t.itemsCents);
+}
+
+// What "Set total to $X" would write: subtotal + tax + tip, offered when the
+// total is empty or doesn't match it.
+export function setTotalTo(t: Totals): string | null {
+  if (t.partsCents === null || t.amountsDiff === 0) return null;
+  return displayMoney(t.partsCents);
+}
+
 export function itemsCheckText(diff: number | null): string | null {
   if (diff === null) return null;
   if (diff === 0) return "Matches";

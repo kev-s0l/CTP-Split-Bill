@@ -118,9 +118,12 @@ filling totals has to be quick, especially on a phone.
     subtotal", or "$1.00 short of the total" / "$1.00 over the total". Nothing shows while a part
     is missing. The icons are decorative; a screen reader hears "Matches" or
     the short/over text.
-- When Subtotal is empty and there is at least one priced item, a **Use items
-  total** button fills it. When Total is empty and Subtotal and Tax are
-  filled, a **Use subtotal + tax + tip** button fills it.
+- Below the results, buttons offer to set a field that doesn't match, with
+  the amount in the label: **Set subtotal to $36.50** (the items total)
+  when Subtotal is empty or doesn't match the items, and **Set total to
+  $54.00** (subtotal + tax + tip) when Total is empty or doesn't match.
+  They show only while that check doesn't match, never in the "Everything
+  adds up" state. Pressing one fills the field and moves focus to it.
 - When both checks match and there is at least one item, the panel's
   border turns brand-colored and a line above the two checks says
   "Everything adds up: $16.00" (the total), with "Confirm items, then add
@@ -206,7 +209,8 @@ filling totals has to be quick, especially on a phone.
 | Type Pad Thai, 1, 14.00, press Enter | A new empty row, focused |
 | Items 61.50, subtotal 64.00 | "Items are $2.50 short of the subtotal" |
 | Press Confirm items while items are short | No request; "Items don't add up to the subtotal yet"; focus on Subtotal |
-| Subtotal empty, items 64.00 | Use items total fills 64.00 |
+| Subtotal empty, items 64.00 | Set subtotal to $64.00 fills it; focus moves to Subtotal |
+| Subtotal 66.50, items 64.00 | "Items are $2.50 short of the subtotal" ✗ and Set subtotal to $64.00 |
 | Everything matches, press Confirm items | PUT items, PATCH with reviewConfirmed; lands on People |
 | Change only the restaurant name, press Save | One PATCH; "Saved" |
 | Save from a tab with an older revision | Conflict message with Reload; draft kept |
@@ -234,7 +238,7 @@ filling totals has to be quick, especially on a phone.
   filled, mismatched, picking-open and finalized states.
 - pnpm typecheck and pnpm build pass.
 - Drill (pnpm dev, signed in): on a receipt after a failed scan, type three
-  items with Enter, fill Subtotal with Use items total, fill Tax, Tip and
+  items with Enter, fill Subtotal with Set subtotal to $…, fill Tax, Tip and
   Total, Confirm; People opens. Back on Items, edit a line total and reload
   without saving; the leave prompt shows. Edit it again and press the step
   bar's Back; the unsaved-changes toast shows, Discard leaves without
@@ -269,6 +273,13 @@ filling totals has to be quick, especially on a phone.
   receipt is typed on a phone; it is the only copy of the buttons. It
   carries no totals status of its own, since that would only repeat the
   totals panel.
+- The set buttons appear on a mismatch, not only on an empty field, so a
+  misread or mistyped total is one tap to fix. They never overwrite
+  silently: the mismatch shows first and the organizer chooses, with the
+  amount in the label. There is no single "recalculate" that rewrites
+  Subtotal and Total from the items, because the printed totals are what
+  the items are checked against; rewriting them would always match and
+  hide a missing or misread line.
 - Removing a row has an undo toast, not a confirmation dialog: deliberate
   removals stay one tap, and a mis-tap is recoverable. Nothing is lost
   until Save, and the leave guard covers abandoning the page.
