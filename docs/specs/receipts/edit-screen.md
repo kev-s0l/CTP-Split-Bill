@@ -107,7 +107,12 @@ filling totals has to be quick, especially on a phone.
 - When Subtotal is empty and there is at least one priced item, a **Use items
   total** button fills it. When Total is empty and Subtotal and Tax are
   filled, a **Use subtotal + tax + tip** button fills it.
-- The panel is a polite live region, so a screen reader hears the result
+- When both checks match and there is at least one item, the panel's
+  border turns brand-colored and a line above the two checks says
+  "Everything adds up: $16.00" (the total), with "Confirm items, then add
+  who was at the table." under it.
+- Only the result lines are a polite live region; the Use buttons sit
+  below it, outside the region, so a screen reader hears the result
   after a change.
 
 ### Save and Confirm
@@ -152,7 +157,8 @@ filling totals has to be quick, especially on a phone.
 - If the items were saved but the field update then fails, the form keeps
   the saved items and the new revision, and shows the field error; Save
   again sends only the fields.
-- A confirmed receipt shows "Confirmed" beside the buttons. Saving a change
+- A confirmed receipt shows "Confirmed" with a check, in the brand color,
+  beside the buttons. Saving a change
   to it clears the confirmation (receipts/edit.md, receipts/items.md); the
   page says "Changing items or totals means confirming them again." whenever
   the receipt is confirmed and the form has changes.
@@ -185,6 +191,7 @@ filling totals has to be quick, especially on a phone.
 | A failed scan | Subtitle: "The scan couldn't read this one. Type the lines from the receipt, then confirm." |
 | Line total "12.345" | "Enter an amount like 12.50" under the field |
 | An empty row left at the end | Dropped on Save |
+| Items 13.00 = subtotal, 13 + 1 + 2 = total 16.00 | "Everything adds up: $16.00" with the next step; brand-colored border |
 | Picking open | Read-only with the pause banner |
 | Phone at 375px | Two-line item blocks; the action bar stays at the bottom while scrolling; no horizontal scroll |
 

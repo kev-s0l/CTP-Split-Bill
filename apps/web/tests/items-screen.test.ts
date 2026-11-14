@@ -268,6 +268,21 @@ describe("leave guard", () => {
   });
 });
 
+// The markup of the element carrying aria-live, from its opening tag to its
+// matching close.
+function liveRegion(html: string): string {
+  const start = html.lastIndexOf("<", html.indexOf('aria-live="polite"'));
+  const tag = html.slice(start + 1).match(/^[a-z]+/)![0];
+  const re = new RegExp(`<${tag}[\\s>]|</${tag}>`, "g");
+  re.lastIndex = start;
+  let depth = 0;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    depth += m[0].startsWith("</") ? -1 : 1;
+    if (depth === 0) return html.slice(start, m.index + m[0].length);
+  }
+  throw new Error("unclosed live region");
+}
+
 describe("renders", () => {
   const render = (overrides: Record<string, unknown> = {}) =>
     renderToStaticMarkup(h(ItemsEditor, { initial: form.toEditorReceipt(detail(overrides)) }));
@@ -338,8 +353,8 @@ describe("renders", () => {
 
   it("the filled receipt shows two checks and no visible Matches", () => {
     const html = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
-    // Two in the totals panel, two in the action bar.
-    expect(html.match(/lucide-check/g)).toHaveLength(4);
+    // "Everything adds up", the two result lines, and two in the action bar.
+    expect(html.match(/lucide-check/g)).toHaveLength(5);
     expect(html.match(/<div class="flex items-start justify-between gap-3">/g)).toHaveLength(2);
     // Every "Matches" is screen-reader only.
     expect(html.split(">Matches<").length - 1).toBe(2);
@@ -386,6 +401,28 @@ describe("renders", () => {
     expect(bar).toContain("Items $20.00");
     expect(bar).toContain('<span class="sr-only">doesn&#x27;t match</span>');
     expect(bar).toMatch(/>Save<\/button>[\s\S]*>Confirm items<\/button>/);
+  });
+
+  it("when everything matches, says so with the total and what comes next", () => {
+    const html = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(html).toContain("Everything adds up: <span class=\"tabular-nums\">$21.80</span>");
+    expect(html).toContain("Confirm items, then add who was at the table.");
+    expect(html).toMatch(/class="[^"]*rounded-card border bg-surface[^"]*border-brand/);
+    expect(render({ subtotal: "22.50" })).not.toContain("Everything adds up");
+  });
+
+  it("only the results are live; the Use buttons sit outside the live region", () => {
+    const html = render({ subtotal: null });
+    const region = liveRegion(html);
+    expect(region).toContain("Items add up to");
+    expect(region).toContain("Subtotal + tax + tip is");
+    expect(region).not.toContain("Use items total");
+    expect(html).toContain(">Use items total</button>");
+  });
+
+  it("a confirmed receipt shows Confirmed with a check, in the brand color", () => {
+    const html = render({ reviewedAt: new Date(), tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
+    expect(html).toMatch(/<span class="[^"]*text-brand[^"]*"><svg[^>]*lucide-check[^>]*>[\s\S]*?<\/svg>Confirmed<\/span>/);
   });
 
   it("offers Use items total when the subtotal is empty", () => {

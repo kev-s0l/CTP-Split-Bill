@@ -324,7 +324,12 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
               </span>
             </a>
             <div className="flex flex-1 items-center justify-end gap-3 max-md:basis-full">
-              {saved.reviewed && !dirty && <span className="text-sm text-ink-muted">Confirmed</span>}
+              {saved.reviewed && !dirty && (
+                <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">
+                  <CheckIcon aria-hidden="true" className="size-4" strokeWidth={3} />
+                  Confirmed
+                </span>
+              )}
               <Button type="button" variant="outline" className="min-h-11 max-md:flex-1" disabled={!dirty || saving !== null} onClick={() => save(false)}>
                 {saving === "save" ? "Saving…" : "Save"}
               </Button>
@@ -556,31 +561,52 @@ export function TotalsCheck({
   const amounts = amountsCheckText(check.amountsDiff);
   const canFillSubtotal = form.subtotal.trim() === "" && itemRows(form).length > 0 && check.itemsCents !== null;
   const canFillTotal = form.total.trim() === "" && check.partsCents !== null;
+  const allMatch = check.itemsDiff === 0 && check.amountsDiff === 0 && itemRows(form).length > 0;
+  const fills = !readOnly && (canFillSubtotal || canFillTotal);
   return (
-    <div role="status" aria-live="polite" className="space-y-2 rounded-card border border-line bg-surface p-4 text-sm">
-      <div className="flex items-start justify-between gap-3">
-        <p>
-          <span className="text-ink-muted">Items add up to </span>
-          <span className="font-semibold tabular-nums">{check.itemsCents === null ? "—" : dollars(check.itemsCents)}</span>
-        </p>
-        <CheckMark diff={check.itemsDiff} text={items} />
+    <div className={cn("space-y-3 rounded-card border bg-surface p-4 text-sm", allMatch ? "border-brand" : "border-line")}>
+      {/* Only the results are live, so a screen reader hears the outcome of a
+          change, not the shortcut buttons below it. */}
+      <div role="status" aria-live="polite" className="space-y-2">
+        {allMatch && (
+          <div className="space-y-1 border-b border-line pb-3">
+            <p className="flex items-start justify-between gap-3 text-base font-semibold">
+              <span>
+                Everything adds up: <span className="tabular-nums">{dollars(check.partsCents!)}</span>
+              </span>
+              <CheckIcon aria-hidden="true" className="size-5 shrink-0 text-brand" strokeWidth={3} />
+            </p>
+            <p className="text-ink-muted">Confirm items, then add who was at the table.</p>
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-3">
+          <p>
+            <span className="text-ink-muted">Items add up to </span>
+            <span className="font-semibold tabular-nums">{check.itemsCents === null ? "—" : dollars(check.itemsCents)}</span>
+          </p>
+          <CheckMark diff={check.itemsDiff} text={items} />
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <p>
+            <span className="text-ink-muted">Subtotal + tax + tip is </span>
+            <span className="font-semibold tabular-nums">{check.partsCents === null ? "—" : dollars(check.partsCents)}</span>
+          </p>
+          <CheckMark diff={check.amountsDiff} text={amounts} />
+        </div>
       </div>
-      {canFillSubtotal && !readOnly && (
-        <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: displayMoney(check.itemsCents!) })}>
-          Use items total
-        </Button>
-      )}
-      <div className="flex items-start justify-between gap-3">
-        <p>
-          <span className="text-ink-muted">Subtotal + tax + tip is </span>
-          <span className="font-semibold tabular-nums">{check.partsCents === null ? "—" : dollars(check.partsCents)}</span>
-        </p>
-        <CheckMark diff={check.amountsDiff} text={amounts} />
-      </div>
-      {canFillTotal && !readOnly && (
-        <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: displayMoney(check.partsCents!) })}>
-          Use subtotal + tax + tip
-        </Button>
+      {fills && (
+        <div className="flex flex-wrap gap-2">
+          {canFillSubtotal && (
+            <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: displayMoney(check.itemsCents!) })}>
+              Use items total
+            </Button>
+          )}
+          {canFillTotal && (
+            <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: displayMoney(check.partsCents!) })}>
+              Use subtotal + tax + tip
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
