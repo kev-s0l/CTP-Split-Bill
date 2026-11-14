@@ -208,6 +208,7 @@ export function ItemsEditor({ initial }: { initial: EditorReceipt }) {
         current = next;
       }
       if (confirm) {
+        // The step bar refreshes itself when the step changes (StepBar.tsx).
         router.push(`${base}/participants`);
         return;
       }
