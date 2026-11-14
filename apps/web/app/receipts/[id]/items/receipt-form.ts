@@ -55,10 +55,15 @@ function moneyText(value: Stored): string {
   return cents === null ? value.toString() : displayMoney(cents);
 }
 
+// Row keys. Saved rows are keyed by their line ("line-3"); rows added in the
+// browser use their own prefix ("new-2"). The page builds the saved rows on
+// the server and the editor adds rows in the browser, and the two have
+// separate copies of this module, so one shared counter would hand out the
+// same key twice.
 let keySeq = 0;
 export function newRowKey(): string {
   keySeq += 1;
-  return `row-${keySeq}`;
+  return `new-${keySeq}`;
 }
 
 export function toEditorReceipt(r: {
@@ -89,8 +94,8 @@ export function toEditorReceipt(r: {
       tax: moneyText(r.tax),
       tip: moneyText(r.tip),
       total: moneyText(r.total),
-      rows: r.items.map((item) => ({
-        key: newRowKey(),
+      rows: r.items.map((item, index) => ({
+        key: `line-${index + 1}`,
         name: item.name ?? "",
         qty: item.quantity === null ? "1" : String(Number(item.quantity.toString())),
         price: moneyText(item.totalPrice),

@@ -43,6 +43,26 @@ function detail(overrides: Record<string, unknown> = {}) {
   };
 }
 
+describe("row keys", () => {
+  it("never collide between the server's saved rows and rows added in the browser", async () => {
+    // Two separate copies of the module, like the server render and the
+    // browser bundle, each with its own counter.
+    const server = form.toEditorReceipt(detail({ items: [{ name: "A", quantity: "1", totalPrice: "1" }, { name: "B", quantity: "1", totalPrice: "2" }] }));
+    vi.resetModules();
+    const browser = await import("../app/receipts/[id]/items/receipt-form");
+    const added = [browser.newRowKey(), browser.newRowKey(), browser.newRowKey()];
+    const all = [...server.form.rows.map((r) => r.key), ...added];
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("are stable for saved rows, so a reload keys the same line the same way", () => {
+    const a = form.toEditorReceipt(detail()).form.rows.map((r) => r.key);
+    const b = form.toEditorReceipt(detail()).form.rows.map((r) => r.key);
+    expect(a).toEqual(["line-1", "line-2"]);
+    expect(b).toEqual(a);
+  });
+});
+
 describe("loading a receipt into the form", () => {
   it("formats money, keeps whole quantities, and fills blanks from nulls", () => {
     const editor = form.toEditorReceipt(detail());
@@ -396,7 +416,7 @@ describe("renders", () => {
     const html = render();
     expect(html).toMatch(/<th[^>]*class="[^"]*text-right[^"]*"[^>]*>Qty<\/th>/);
     expect(html).toMatch(/<th[^>]*class="[^"]*text-right[^"]*"[^>]*>Line total<\/th>/);
-    const price = html.match(/<div class="relative min-w-0 flex-1">(?:(?!<\/div>).)*?id="row-\d+-price"[^>]*>/)![0];
+    const price = html.match(/<div class="relative min-w-0 flex-1">(?:(?!<\/div>).)*?id="(?:line|new)-\d+-price"[^>]*>/)![0];
     expect(price).toContain(">$</span>");
     expect(price).toMatch(/class="[^"]*text-right tabular-nums pl-7/);
     expect(html).toMatch(/class="[^"]*pl-7 text-right tabular-nums[^"]*" id="receipt-subtotal"/);
@@ -416,17 +436,17 @@ describe("renders", () => {
     // No separate phone header; labels sit inside the fields instead.
     expect(html).not.toMatch(/<div aria-hidden="true" class="grid [^"]*md:hidden">/);
     expect(html).not.toMatch(/md:sr-only/);
-    expect(html).toMatch(/id="row-\d+-name"[^>]*placeholder="Item"|placeholder="Item"[^>]*id="row-\d+-name"/);
+    expect(html).toMatch(/id="(?:line|new)-\d+-name"[^>]*placeholder="Item"|placeholder="Item"[^>]*id="(?:line|new)-\d+-name"/);
   });
 
   it("on phones the second line reads like receipt math: Qty 10 × $2.40 = $24.00", () => {
     const html = render({ items: [{ name: "Chicken", quantity: "10", totalPrice: "24" }, { name: "Tea", quantity: "1", totalPrice: "10" }] });
     // "Qty" sits inside the quantity field on phones only.
-    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*md:hidden">Qty<\/span><input[^>]*class="[^"]*max-md:pl-11[^"]*" id="row-\d+-qty"/);
+    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*md:hidden">Qty<\/span><input[^>]*class="[^"]*max-md:pl-11[^"]*" id="(?:line|new)-\d+-qty"/);
     // The price of one sits between Qty and the line total, on phones only, hidden from screen readers.
     expect(html).toMatch(/<span aria-hidden="true" class="[^"]*md:hidden">× \$2\.40 =<\/span><div class="relative min-w-0 flex-1"><span aria-hidden="true"[^>]*>\$<\/span><input/);
     // Screen readers still hear the full hint, which is visible from md up.
-    expect(html).toMatch(/<p id="row-\d+-each" class="[^"]*max-md:hidden">10 × \$2\.40 each<\/p>/);
+    expect(html).toMatch(/<p id="(?:line|new)-\d+-each" class="[^"]*max-md:hidden">10 × \$2\.40 each<\/p>/);
     // Qty 1 shows no math.
     expect(html.match(/× \$[\d.,]+ =/g)).toHaveLength(1);
   });
