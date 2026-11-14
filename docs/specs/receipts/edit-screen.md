@@ -230,7 +230,7 @@ filling totals has to be quick, especially on a phone.
 
 - The totals check runs on the client from the form so it reacts while
   typing; it uses the same cents rule as review confirmation
-  (receipts/edit.md, receipts/totals-check.md), and the server re-checks.
+  (receipts/edit.md), and the server re-checks.
 - Two requests instead of one, because items and fields are separate
   APIs. Items go first so a Confirm validates the new items. The pair is
   not atomic; the partial-failure path keeps what was saved.
@@ -265,4 +265,7 @@ filling totals has to be quick, especially on a phone.
 - Assigning or splitting items (the Picks step), finalizing (the Finalize
   step), and the payer and split mode.
 - Re-scanning, editing the photo, or showing the photo beside the form.
-- Discount or fee lines as their own type; they are entered as items.
+- Discounts. Line totals are nonnegative (receipts/items.md) and the split
+  does not model discounts (bills/split-allocation.md), so a receipt with a
+  printed discount line cannot reconcile on this screen yet. A service fee
+  or other positive charge is entered as an ordinary item.
