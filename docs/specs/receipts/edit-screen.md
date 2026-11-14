@@ -63,19 +63,25 @@ filling totals has to be quick, especially on a phone.
 
 - At `md:` and up the items are a `Table` with columns Item, Qty, Line
   total and a remove button; each input is labelled by its column for
-  screen readers. Below `md:`, the items are a receipt-style list: one
-  header row ("Qty", "Line total") above them, then two lines per item (the
-  name, with "Item" as its placeholder, and its remove button; then Qty and
-  Line total), with a rule under the header, between items and after the last
-  one. No cards, and no per-row visible labels; every input keeps its
-  screen-reader label ("Qty (item 2)"). No horizontal scroll at 375px.
+  screen readers. Below `md:`, the items are a receipt-style list with no
+  header and no cards: two lines per item, with a rule above the first
+  item, between items and after the last one.
+  - Line 1: the name (with "Item" as its placeholder) and its remove button.
+  - Line 2 reads like receipt math: the quantity field with "Qty" inside
+    it, then, when Qty is not 1, the price of one ("× $2.40 ="), then the
+    line total with its `$` prefix: "Qty 10 × $2.40 = $24.00". A Qty of 1
+    shows just "Qty 1" and the line total.
+  - Every input keeps its screen-reader label ("Qty (item 2)"). No
+    horizontal scroll at 375px.
 - **Line total** is what the whole line costs, the number the receipt
   prints at the end of the line: Qty 10 with Line total 24.00 is ten items
   for $24.00 together. **Qty** defaults to 1 for a new item.
-- When a row's Qty is not 1 and both Qty and Line total are valid, the row
-  shows the price of one under it, "10 × $2.40 each" (the line total divided
-  by the quantity, rounded to the cent). The Line total input is described
-  by this hint for screen readers. A Qty of 1 shows no hint.
+- When a row's Qty is not 1 and both Qty and Line total are valid, the price
+  of one is the line total divided by the quantity, rounded to the cent. On
+  phones it shows inline ("× $2.40 =", above); from `md:` up it shows under
+  the line total as "10 × $2.40 each". Either way, the Line total input is
+  described by "10 × $2.40 each" for screen readers. A Qty of 1 shows
+  neither.
 - Changing Qty keeps the Line total and updates the hint; nothing is
   recalculated behind the organizer's back.
 - **+ Add item** adds an empty row at the end and focuses its name. Enter
@@ -190,7 +196,7 @@ filling totals has to be quick, especially on a phone.
 | Everything matches, press Confirm items | PUT items, PATCH with reviewConfirmed; lands on People |
 | Change only the restaurant name, press Save | One PATCH; "Saved" |
 | Save from a tab with an older revision | Conflict message with Reload; draft kept |
-| Qty 10, Line total 24 | "10 × $2.40 each" under the row; items add 24.00 |
+| Qty 10, Line total 24 | "× $2.40 =" between the fields on phones, "10 × $2.40 each" under the line total from md up; items add 24.00 |
 | Change that Qty to 12 | Line total stays 24.00; "12 × $2.00 each" |
 | Line total "$1,024" with Qty 2 | Accepted; shows "1,024.00" after leaving the field; saved as 1024.00; "2 × $512.00 each" |
 | A failed scan | Subtitle: "The scan couldn't read this one. Type the lines from the receipt, then confirm." |
@@ -198,7 +204,7 @@ filling totals has to be quick, especially on a phone.
 | An empty row left at the end | Dropped on Save |
 | Items 13.00 = subtotal, 13 + 1 + 2 = total 16.00 | "Everything adds up: $16.00" with the next step; brand-colored border |
 | Picking open | Read-only with the pause banner |
-| Phone at 375px | Receipt-style list with one Qty / Line total header; the action bar stays at the bottom while scrolling; no horizontal scroll |
+| Phone at 375px, Chicken Qty 10 for 24.00 | Line 2 reads "Qty 10 × $2.40 = $ 24.00"; the action bar stays at the bottom while scrolling; no horizontal scroll |
 | Tap × on Tea | Tea disappears; "Removed Tea" with Undo at the top; Undo puts it back where it was |
 
 ## Verify

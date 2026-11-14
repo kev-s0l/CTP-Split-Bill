@@ -23,6 +23,7 @@ import {
   confirmProblems,
   dollars,
   eachHint,
+  eachPrice,
   fieldId,
   formErrors,
   hasErrors,
@@ -432,13 +433,6 @@ export function ItemsTable({
   onEnterInPrice: () => void;
 }) {
   return (
-    <>
-    {/* Phones: one header for the second line of every item (Qty, Line
-        total); the first line is the item's name and its remove button. */}
-    <div aria-hidden="true" className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_2.75rem] gap-2 border-b border-line pb-2 text-sm font-medium text-ink-muted md:hidden">
-      <span className="text-right">Qty</span>
-      <span className="col-span-2 text-right">Line total</span>
-    </div>
     <Table className="max-md:block">
       <TableHeader className="max-md:hidden">
         <TableRow>
@@ -448,11 +442,12 @@ export function ItemsTable({
           {!readOnly && <TableHead className="w-14"><span className="sr-only">Remove</span></TableHead>}
         </TableRow>
       </TableHeader>
-      <TableBody className="max-md:block max-md:border-b max-md:border-line">
+      <TableBody className="max-md:block max-md:border-y max-md:border-line">
         {rows.map((row, index) => {
           const e = errors[row.key] ?? {};
           const cell = "whitespace-normal align-top max-md:block max-md:p-0";
           const hint = eachHint(row);
+          const each = eachPrice(row);
           const hintId = `${row.key}-each`;
           const numeric = (field: "name" | "qty" | "price") => field !== "name";
           const input = (field: "name" | "qty" | "price", label: string, props: React.ComponentProps<typeof Input>) => {
@@ -465,20 +460,39 @@ export function ItemsTable({
                   {label}
                   <span className="sr-only"> (item {index + 1})</span>
                 </Label>
-                <div className="relative">
-                  {field === "price" && (
-                    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
-                      $
+                <div className={cn(field === "price" && "flex items-center gap-2")}>
+                  {/* Phones: the price of one sits between Qty and the line
+                      total, so the line reads 10 × $2.40 = $24.00. */}
+                  {field === "price" && each && (
+                    <span aria-hidden="true" className="shrink-0 text-sm whitespace-nowrap text-ink-muted tabular-nums md:hidden">
+                      × {each} =
                     </span>
                   )}
-                  <Input
-                    id={id}
-                    className={cn("min-h-11", numeric(field) && "text-right tabular-nums", field === "price" && "pl-7")}
-                    aria-invalid={error ? true : undefined}
-                    aria-describedby={describedBy || undefined}
-                    onBlur={() => touch(id)}
-                    {...props}
-                  />
+                  <div className="relative min-w-0 flex-1">
+                    {field === "price" && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
+                        $
+                      </span>
+                    )}
+                    {field === "qty" && (
+                      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-ink-muted md:hidden">
+                        Qty
+                      </span>
+                    )}
+                    <Input
+                      id={id}
+                      className={cn(
+                        "min-h-11",
+                        numeric(field) && "text-right tabular-nums",
+                        field === "price" && "pl-7",
+                        field === "qty" && "max-md:pl-11",
+                      )}
+                      aria-invalid={error ? true : undefined}
+                      aria-describedby={describedBy || undefined}
+                      onBlur={() => touch(id)}
+                      {...props}
+                    />
+                  </div>
                 </div>
                 {error && (
                   <p id={`${id}-error`} className="text-sm text-destructive">
@@ -486,7 +500,10 @@ export function ItemsTable({
                   </p>
                 )}
                 {field === "price" && hint && (
-                  <p id={hintId} className="text-right text-sm text-ink-muted tabular-nums">
+                  // Shown under the line total from md up; on phones the same
+                  // text stays available to screen readers through
+                  // aria-describedby while the inline "× $2.40 =" shows.
+                  <p id={hintId} className="text-right text-sm text-ink-muted tabular-nums max-md:hidden">
                     {hint}
                   </p>
                 )}
@@ -499,7 +516,7 @@ export function ItemsTable({
             // receipt.
             <TableRow
               key={row.key}
-              className="hover:bg-transparent max-md:grid max-md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_2.75rem] max-md:gap-2 max-md:border-line max-md:py-3"
+              className="hover:bg-transparent max-md:grid max-md:grid-cols-[6.5rem_minmax(0,1fr)_2.75rem] max-md:gap-2 max-md:border-line max-md:py-3"
             >
               <TableCell className={cn(cell, "max-md:col-span-2 max-md:row-start-1")}>
                 {input("name", "Item", {
@@ -558,7 +575,6 @@ export function ItemsTable({
         })}
       </TableBody>
     </Table>
-    </>
   );
 }
 

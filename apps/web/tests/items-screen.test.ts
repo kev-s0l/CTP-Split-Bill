@@ -94,6 +94,14 @@ describe("tidying amounts", () => {
   });
 });
 
+describe("price of one", () => {
+  it("is the line total over the quantity, only when Qty isn't 1", () => {
+    expect(form.eachPrice(row("a", "Chicken", "24", "10"))).toBe("$2.40");
+    expect(form.eachPrice(row("a", "Tea", "10", "1"))).toBeNull();
+    expect(form.eachPrice(row("a", "Tea", "", "3"))).toBeNull();
+  });
+});
+
 describe("removing a row and undoing it", () => {
   const rows = [row("a", "Chicken", "24", "10"), row("b", "Tea", "10"), row("c", "Rice", "3")];
 
@@ -388,7 +396,7 @@ describe("renders", () => {
     const html = render();
     expect(html).toMatch(/<th[^>]*class="[^"]*text-right[^"]*"[^>]*>Qty<\/th>/);
     expect(html).toMatch(/<th[^>]*class="[^"]*text-right[^"]*"[^>]*>Line total<\/th>/);
-    const price = html.match(/<div class="relative">(?:(?!<\/div>).)*?id="row-\d+-price"[^>]*>/)![0];
+    const price = html.match(/<div class="relative min-w-0 flex-1">(?:(?!<\/div>).)*?id="row-\d+-price"[^>]*>/)![0];
     expect(price).toContain(">$</span>");
     expect(price).toMatch(/class="[^"]*text-right tabular-nums pl-7/);
     expect(html).toMatch(/class="[^"]*pl-7 text-right tabular-nums[^"]*" id="receipt-subtotal"/);
@@ -398,21 +406,29 @@ describe("renders", () => {
     expect(render({ subtotal: null, tax: null, items: [{ name: null, quantity: null, totalPrice: null }] })).not.toContain('placeholder="0.00"');
   });
 
-  it("phones get a receipt-style list: one Qty / Line total header, rows divided by rules, no cards", () => {
+  it("phones get a receipt-style list: rows divided by rules, no cards and no floating header", () => {
     const html = render();
-    // One header for every row, shown only on phones; the table header stays for md and up.
-    expect(html).toMatch(/<div aria-hidden="true" class="grid [^"]*md:hidden"><span class="text-right">Qty<\/span><span class="col-span-2 text-right">Line total<\/span><\/div>/);
     const tr = html.match(/<tr data-slot="table-row" class="[^"]*max-md:grid[^"]*"/)![0];
-    // Each row keeps the table's rule under it; the header and the list's
-    // end carry the outer rules.
     expect(tr).toMatch(/^<tr data-slot="table-row" class="border-b /);
-    expect(html).toMatch(/<div aria-hidden="true" class="grid [^"]*border-b border-line[^"]*md:hidden">/);
-    expect(html).toMatch(/<tbody[^>]*class="[^"]*max-md:border-b max-md:border-line/);
     expect(tr).not.toContain("max-md:bg-surface");
     expect(tr).not.toContain("max-md:rounded-card");
-    // Per-row labels are for screen readers only; the name field says "Item".
+    expect(html).toMatch(/<tbody[^>]*class="[^"]*max-md:border-y max-md:border-line/);
+    // No separate phone header; labels sit inside the fields instead.
+    expect(html).not.toMatch(/<div aria-hidden="true" class="grid [^"]*md:hidden">/);
     expect(html).not.toMatch(/md:sr-only/);
     expect(html).toMatch(/id="row-\d+-name"[^>]*placeholder="Item"|placeholder="Item"[^>]*id="row-\d+-name"/);
+  });
+
+  it("on phones the second line reads like receipt math: Qty 10 × $2.40 = $24.00", () => {
+    const html = render({ items: [{ name: "Chicken", quantity: "10", totalPrice: "24" }, { name: "Tea", quantity: "1", totalPrice: "10" }] });
+    // "Qty" sits inside the quantity field on phones only.
+    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*md:hidden">Qty<\/span><input[^>]*class="[^"]*max-md:pl-11[^"]*" id="row-\d+-qty"/);
+    // The price of one sits between Qty and the line total, on phones only, hidden from screen readers.
+    expect(html).toMatch(/<span aria-hidden="true" class="[^"]*md:hidden">× \$2\.40 =<\/span><div class="relative min-w-0 flex-1"><span aria-hidden="true"[^>]*>\$<\/span><input/);
+    // Screen readers still hear the full hint, which is visible from md up.
+    expect(html).toMatch(/<p id="row-\d+-each" class="[^"]*max-md:hidden">10 × \$2\.40 each<\/p>/);
+    // Qty 1 shows no math.
+    expect(html.match(/× \$[\d.,]+ =/g)).toHaveLength(1);
   });
 
   it("on phones the remove button sits on the item's name line, and Qty | Line total share the second", () => {

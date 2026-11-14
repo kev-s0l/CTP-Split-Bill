@@ -204,13 +204,20 @@ export function unitPriceCents(totalCents: number, quantity: number): number {
   return Math.round(totalCents / quantity);
 }
 
-// "10 × $2.40 each" under a row whose Qty isn't 1; null otherwise.
-export function eachHint(row: FormRow): string | null {
+// The price of one for a row whose Qty isn't 1 ("$2.40"); null otherwise.
+export function eachPrice(row: FormRow): string | null {
   const total = toCents(row.price);
   if (!qtyOk(row.qty) || total === null) return null;
   const quantity = Number(row.qty.trim());
   if (quantity === 1) return null;
-  return `${quantity} × ${dollars(unitPriceCents(total, quantity))} each`;
+  return dollars(unitPriceCents(total, quantity));
+}
+
+// "10 × $2.40 each": the hint under a row's line total on wider screens, and
+// what screen readers hear for it on every screen.
+export function eachHint(row: FormRow): string | null {
+  const each = eachPrice(row);
+  return each === null ? null : `${Number(row.qty.trim())} × ${each} each`;
 }
 
 // Removing a row and putting it back (the Undo in the "Removed …" toast).
