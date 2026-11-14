@@ -284,6 +284,8 @@ describe("renders", () => {
     expect(html).toContain("lucide-x");
     expect(html).toContain("<span>Items are $2.50 short of the subtotal</span>");
     expect(html).not.toContain("sr-only");
+    // The cross comes after the text, so it sits at the right edge.
+    expect(html.indexOf("short of the subtotal")).toBeLessThan(html.indexOf("lucide-x"));
   });
 
   it("shows nothing while a part is missing", () => {
@@ -293,6 +295,7 @@ describe("renders", () => {
   it("the filled receipt shows two checks and no visible Matches", () => {
     const html = render({ tip: "0", items: [{ name: "Pad Thai", quantity: "1", totalPrice: "20" }] });
     expect(html.match(/lucide-check/g)).toHaveLength(2);
+    expect(html.match(/<div class="flex items-start justify-between gap-3">/g)).toHaveLength(2);
     // Every "Matches" is screen-reader only.
     expect(html.split(">Matches<").length - 1).toBe(2);
     expect(html.split('sr-only">Matches<').length - 1).toBe(2);

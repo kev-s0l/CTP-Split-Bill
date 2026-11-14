@@ -79,8 +79,9 @@ filling totals has to be quick, especially on a phone.
   in integer cents from the form (not from the last save):
   - **Items** add up to $X, compared with Subtotal.
   - **Subtotal + tax + tip** (empty tip counts as 0), compared with Total.
-  - Each shows a green check (✓) when it matches, or a red cross (✗) with
-    how far off it is: "Items are $2.50 short of the subtotal" / "over the
+  - At the right end of each line, a green check (✓) when it matches, or
+    how far off it is followed by a red cross (✗), so the marks line up at
+    the panel's edge: "Items are $2.50 short of the subtotal" / "over the
     subtotal", or "$1.00 short" / "$1.00 over". Nothing shows while a part
     is missing. The icons are decorative; a screen reader hears "Matches" or
     the short/over text.

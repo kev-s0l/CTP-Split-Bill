@@ -493,21 +493,25 @@ export function TotalsCheck({
   const canFillTotal = form.total.trim() === "" && check.partsCents !== null;
   return (
     <div role="status" aria-live="polite" className="space-y-2 rounded-card border border-line bg-surface p-4 text-sm">
-      <p>
-        <span className="text-ink-muted">Items add up to </span>
-        <span className="font-semibold tabular-nums">{check.itemsCents === null ? "—" : dollars(check.itemsCents)}</span>
+      <div className="flex items-start justify-between gap-3">
+        <p>
+          <span className="text-ink-muted">Items add up to </span>
+          <span className="font-semibold tabular-nums">{check.itemsCents === null ? "—" : dollars(check.itemsCents)}</span>
+        </p>
         <CheckMark diff={check.itemsDiff} text={items} />
-      </p>
+      </div>
       {canFillSubtotal && !readOnly && (
         <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ subtotal: formatCents(check.itemsCents!) })}>
           Use items total
         </Button>
       )}
-      <p>
-        <span className="text-ink-muted">Subtotal + tax + tip is </span>
-        <span className="font-semibold tabular-nums">{check.partsCents === null ? "—" : dollars(check.partsCents)}</span>
+      <div className="flex items-start justify-between gap-3">
+        <p>
+          <span className="text-ink-muted">Subtotal + tax + tip is </span>
+          <span className="font-semibold tabular-nums">{check.partsCents === null ? "—" : dollars(check.partsCents)}</span>
+        </p>
         <CheckMark diff={check.amountsDiff} text={amounts} />
-      </p>
+      </div>
       {canFillTotal && !readOnly && (
         <Button type="button" variant="outline" className="min-h-11" onClick={() => onFill({ total: formatCents(check.partsCents!) })}>
           Use subtotal + tax + tip
@@ -517,22 +521,23 @@ export function TotalsCheck({
   );
 }
 
-// ✓ when a check matches (its words stay for screen readers); ✗ with how far
-// off it is when it doesn't; nothing while a part is missing.
+// Right-aligned on its line: ✓ when a check matches (its words stay for
+// screen readers); how far off it is, then ✗, when it doesn't; nothing while
+// a part is missing. The icon is last so the marks line up at the edge.
 export function CheckMark({ diff, text }: { diff: number | null; text: string | null }) {
   if (diff === null || text === null) return null;
   if (diff === 0) {
     return (
-      <span className="ml-2 inline-flex items-center align-middle text-brand">
+      <span className="inline-flex shrink-0 items-center text-brand">
         <CheckIcon aria-hidden="true" className="size-5" strokeWidth={3} />
         <span className="sr-only">{text}</span>
       </span>
     );
   }
   return (
-    <span className="ml-2 inline-flex items-center gap-1 align-middle text-destructive">
-      <XIcon aria-hidden="true" className="size-5" strokeWidth={3} />
+    <span className="inline-flex items-start gap-1 text-right text-destructive">
       <span>{text}</span>
+      <XIcon aria-hidden="true" className="size-5 shrink-0" strokeWidth={3} />
     </span>
   );
 }
