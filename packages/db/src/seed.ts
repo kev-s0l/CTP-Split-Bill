@@ -42,6 +42,29 @@ export async function seedDemo(db = prisma) {
     },
     data: { paidByParticipantId: "seed-member-demo" },
   });
+  // Reviewed but 2.50 short: the editor can't produce this, so the finalize
+  // screen's mismatch drill reads it from here (receipts/finalize-screen.md).
+  await db.receipt.upsert({
+    where: { id: "seed-receipt-mismatch" }, update: {},
+    create: {
+      id: "seed-receipt-mismatch", ownerId: "demo-user", title: "Taco Tuesday",
+      imageBlobName: "seed/receipt-mismatch.jpg", imageContentType: "image/jpeg",
+      parseStatus: "SUCCEEDED", merchantName: "Taco Stand", reviewedAt: new Date(0),
+      subtotal: "64.00", tax: "5.68", tip: "11.52", total: "81.20",
+      items: { create: [
+        { lineNumber: 1, name: "Tacos", quantity: "3", unitPrice: "12.50", totalPrice: "37.50", isVerified: true },
+        { lineNumber: 2, name: "Nachos", quantity: "2", unitPrice: "12.00", totalPrice: "24.00", isVerified: true },
+      ] },
+      participants: { create: [
+        { id: "seed-mismatch-organizer", displayName: "Demo User", joinedAt: new Date(0) },
+        { id: "seed-mismatch-guest", displayName: "Riley", joinedAt: new Date(1000) },
+      ] },
+    },
+  });
+  await db.receipt.updateMany({
+    where: { id: "seed-receipt-mismatch", organizerParticipantId: null },
+    data: { organizerParticipantId: "seed-mismatch-organizer" },
+  });
   await db.receipt.upsert({
     where: { id: "seed-receipt-other" }, update: {},
     create: {

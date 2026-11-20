@@ -9,7 +9,15 @@ describe("receipt-owned seed drill", () => {
     await seedDemo();
     await seedDemo();
     expect(await prisma.participant.count({ where: { receiptId: "seed-receipt-demo" } })).toBe(2);
-    expect((await listReceipts("demo-user")).map((receipt) => receipt.id)).toEqual(["seed-receipt-demo"]);
+    expect((await listReceipts("demo-user")).map((receipt) => receipt.id).sort())
+      .toEqual(["seed-receipt-demo", "seed-receipt-mismatch"]);
+    // The finalize screen's mismatch drill: reviewed, yet 2.50 short.
+    const mismatch = await getReceipt("demo-user", "seed-receipt-mismatch");
+    expect(mismatch.reviewedAt).not.toBeNull();
+    expect(mismatch.organizerParticipantId).toBe("seed-mismatch-organizer");
+    expect(mismatch.totals).toEqual({
+      itemsTotal: "61.50", itemsDifference: "2.50", amountsDifference: "0.00", reconciled: false,
+    });
     await expect(getReceipt("other-user", "seed-receipt-demo")).rejects.toMatchObject({ status: 404 });
     await expect(getReceipt("demo-user", undefined as unknown as string)).rejects.toMatchObject({ status: 404 });
     const receipt = await getReceipt("demo-user", "seed-receipt-demo");

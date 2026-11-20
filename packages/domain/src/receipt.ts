@@ -5,6 +5,7 @@ import { prisma, type Prisma } from "@project/db";
 import { ApiError } from "./errors";
 import { lockEditableReceipt, receiptScope, requireReceiptUser } from "./receipt-access";
 import { toCents } from "./split";
+import { type ReceiptTotals, receiptTotals } from "./totals";
 
 export const ExpectedRevision = z.object({
   expectedRevision: z.number().int().positive().max(2147483646),
@@ -82,13 +83,22 @@ export const receiptDetail = {
   },
 } satisfies Prisma.ReceiptSelect;
 
-// Every receiptDetail read reduces token hashes to booleans; neither hash leaves
-// the domain, including mutation responses (receipts/detail.md).
-type PresentedParticipant<P> = Omit<P, "pickTokenHash"> & { hasPickLink: boolean };
+type StoredMoney = { toString(): string } | null;
 
-export function presentReceipt<P extends { pickTokenHash: string | null }, R extends { participants: P[]; groupTokenHash: string | null }>(
+// Every receiptDetail read reduces token hashes to booleans; neither hash leaves
+// the domain, including mutation responses (receipts/detail.md). The derived
+// totals check is added (receipts/totals-check.md).
+type PresentedParticipant<P> = Omit<P, "pickTokenHash"> & { hasPickLink: boolean };
+type TotalsSource = Parameters<typeof receiptTotals>[0];
+
+export function presentReceipt<
+  P extends { pickTokenHash: string | null },
+  R extends { participants: P[]; groupTokenHash: string | null } & TotalsSource,
+>(
   receipt: R & { participants: P[] },
-): Omit<R, "participants" | "groupTokenHash"> & { hasGroupLink: boolean; participants: PresentedParticipant<P>[] } {
+): Omit<R, "participants" | "groupTokenHash"> & {
+  hasGroupLink: boolean; participants: PresentedParticipant<P>[]; totals: ReceiptTotals;
+} {
   const { participants, groupTokenHash, ...rest } = receipt;
   return {
     ...rest,
@@ -97,10 +107,9 @@ export function presentReceipt<P extends { pickTokenHash: string | null }, R ext
       ...participant,
       hasPickLink: pickTokenHash !== null,
     })),
+    totals: receiptTotals(receipt),
   };
 }
-
-type StoredMoney = { toString(): string } | null;
 
 // Used at confirmation and finalization; the pure allocator only receives
 // complete, validated integer cents.

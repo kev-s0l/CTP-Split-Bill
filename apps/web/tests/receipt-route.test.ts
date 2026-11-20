@@ -73,6 +73,15 @@ describe("owned receipt reads and corrections", () => {
     expect(body.items.map((row: { lineNumber: number }) => row.lineNumber)).toEqual([1, 2]);
     expect(body.participants.map((row: { id: string }) => row.id)).toEqual(["receipt-alex", "receipt-sam"]);
     for (const field of ["partyId", "extraction", "parseError", "imageBlobName", "deletedAt"]) expect(body).not.toHaveProperty(field);
+    expect(body.totals).toEqual({ itemsTotal: "30.00", itemsDifference: "0.00", amountsDifference: "0.00", reconciled: true });
+  });
+
+  it("reports the totals check on every detail response, derived from what was just written", async () => {
+    const res = await request("PATCH", { subtotal: "32.50" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).totals).toEqual({
+      itemsTotal: "30.00", itemsDifference: "2.50", amountsDifference: "-2.50", reconciled: false,
+    });
   });
 
   it("updates nullable metadata, clears review, advances revision and ignores protected fields", async () => {

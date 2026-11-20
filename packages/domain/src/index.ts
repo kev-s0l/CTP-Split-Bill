@@ -5,6 +5,7 @@ export * from "./receipt";
 export * from "./receipt-access";
 export * from "./bills";
 export * from "./split";
+export * from "./totals";
 export * from "./user";
 export * from "./participants";
 export * from "./contact";

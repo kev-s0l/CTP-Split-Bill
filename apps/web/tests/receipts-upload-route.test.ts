@@ -91,6 +91,7 @@ describe("receipt photo uploads", () => {
         id: expect.any(String), displayName: "Owner", phone: null, email: null,
         joinedAt: expect.any(String), picksSubmittedAt: null, hasPickLink: false,
       }], items: [],
+      totals: { itemsTotal: "0.00", itemsDifference: null, amountsDifference: null, reconciled: false },
     });
     // The organizer is on their own roster from the start (ADR-0018).
     expect(body.organizerParticipantId).toBe(body.participants[0].id);

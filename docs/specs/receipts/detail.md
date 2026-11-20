@@ -26,7 +26,8 @@ and inspect a finalized receipt without exposing internal parser/blob data.
   (null on receipts created before the organizer row), business/parse/split
   state, picksOpenedAt (null while editing; receipts/guest-picks.md),
   revision, review/finalization timestamps, merchant/address/purchase date,
-  currency, nullable amounts, creation/update times, participants and items.
+  currency, nullable amounts, creation/update times, participants, items and
+  the derived `totals` check (receipts/totals-check.md).
 - Receipt detail includes `hasGroupLink`, derived from whether the receipt
   holds a group token hash. `groupTokenHash` is never returned, including
   mutation responses that reuse receipt detail (receipts/guest-picks.md).

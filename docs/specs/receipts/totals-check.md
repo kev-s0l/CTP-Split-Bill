@@ -1,6 +1,5 @@
 ---
 type: feature
-status: draft
 ---
 # Receipt detail reports whether items add up, and a mismatched receipt cannot finalize
 
@@ -12,8 +11,10 @@ error when finalizing. The rule itself already exists; this makes it visible.
 
 ## Where it lives
 
-- packages/domain/src/receipt.ts: the receipt detail projection and the
-  existing reconciliation check used by review confirmation.
+- packages/domain/src/totals.ts: `receiptTotals`, pure.
+- packages/domain/src/receipt.ts: `presentReceipt` adds `totals` to every
+  receipt detail response, and the existing reconciliation check used by
+  review confirmation.
 - packages/domain/src/split.ts: the unchanged finalization check.
 - apps/web/app/api/receipts/[id]/route.ts: GET (response gains fields).
 
