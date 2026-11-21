@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+# Build context: repository root
+FROM node:24-bookworm-slim AS build
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
+RUN npm install --global pnpm@11.17.0
+
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm prisma:generate
+# Downloads and checksum-verifies English OCR language data.
+RUN pnpm ocr:setup
+RUN pnpm --filter @project/web build
+
+FROM node:24-bookworm-slim AS runtime
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# Preserve pnpm workspace symlinks, generated Prisma, OCR worker, and OCR data.
+# Optimize to a smaller standalone image after validating first deployment.
+COPY --from=build --chown=node:node /app /app
+
+WORKDIR /app/apps/web
+USER node
+EXPOSE 3000
+CMD ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

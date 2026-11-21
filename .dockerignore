@@ -1,0 +1,17 @@
+.git
+.github
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/coverage
+**/test-results
+**/.pgdata
+**/.azurite
+**/.ocr
+**/.env
+**/.env.*
+.env
+.env.*
+*.log
+*.zip
